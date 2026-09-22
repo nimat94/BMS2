@@ -1,22 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
+import { SUPABASE_URL, SUPABASE_KEY } from '@/lib/supabase/client';
 
 export async function middleware(request: NextRequest) {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  if (!url || !key) {
-    const missing = [
-      !url ? 'NEXT_PUBLIC_SUPABASE_URL' : null,
-      !key ? 'NEXT_PUBLIC_SUPABASE_ANON_KEY' : null,
-    ].filter(Boolean).join(', ');
-    return new NextResponse(
-      `Настройка не завершена. В Vercel не найдены переменные окружения: ${missing}.\n` +
-      `Vercel → проект → Settings → Environments → Production → Environment Variables.\n` +
-      `После сохранения обязательно сделайте Redeploy без кэша.`,
-      { status: 500, headers: { 'content-type': 'text/plain; charset=utf-8' } }
-    );
-  }
+  const url = SUPABASE_URL;
+  const key = SUPABASE_KEY;
 
   let response = NextResponse.next({ request });
 
@@ -53,9 +41,7 @@ export async function middleware(request: NextRequest) {
     }
   } catch (e: any) {
     return new NextResponse(
-      'Ошибка подключения к Supabase: ' + (e?.message || String(e)) +
-      '\nПроверьте, что NEXT_PUBLIC_SUPABASE_URL — это Project URL (https://xxxx.supabase.co), ' +
-      'а NEXT_PUBLIC_SUPABASE_ANON_KEY — Publishable key.',
+      'Ошибка подключения к Supabase: ' + (e?.message || String(e)),
       { status: 500, headers: { 'content-type': 'text/plain; charset=utf-8' } }
     );
   }
