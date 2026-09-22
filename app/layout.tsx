@@ -1,15 +1,10 @@
-import type { Metadata } from "next";
-import "./globals.css";
+// Server Component wrapper: forces this whole section to render per-request
+// instead of being statically prerendered at build time (these pages depend
+// on a live user session, which doesn't exist during `next build`).
+export const dynamic = 'force-dynamic';
 
-export const metadata: Metadata = {
-  title: "Контроль монтажа — МФК Фрунзенская наб.",
-  description: "Учёт монтажа кабелей, оборудования, щитов и посещаемости объекта",
-};
+import AppShell from './AppShell';
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <html lang="ru" className="h-full">
-      <body className="min-h-full">{children}</body>
-    </html>
-  );
+export default function Layout({ children }: { children: React.ReactNode }) {
+  return <AppShell>{children}</AppShell>;
 }
