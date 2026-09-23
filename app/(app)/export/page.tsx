@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { SECTIONS } from '@/lib/types';
-import { todayStr } from '@/lib/utils';
+import { todayStr, monthRange } from '@/lib/utils';
 
 export default function ExportPage() {
   const supabase = createClient();
@@ -16,19 +16,25 @@ export default function ExportPage() {
     setStatus('Собираю данные…');
     try {
       const XLSX = await import('xlsx');
-      const from = month + '-01';
-      const to = month + '-31';
+      const { from, to } = monthRange(month);
 
-      let cq = supabase.from('cable_logs').select('qty,date,note,cable_id,user_id,cables(section,system,tag,start_point,end_point),profiles(full_name)').gte('date', from).lte('date', to);
-      let eq = supabase.from('equipment_logs').select('qty,date,note,equipment_id,user_id,equipment(section,group_name,name,unit),profiles(full_name)').gte('date', from).lte('date', to);
-      const { data: cableLogs } = await cq;
-      const { data: equipLogs } = await eq;
+      const { data: cableLogs, error: e1 } = await supabase
+        .from('cable_logs')
+        .select('qty,date,note,cable_id,user_id,completed,stop_reason,cables(section,system,tag,start_point,end_point),profiles(full_name)')
+        .gte('date', from).lt('date', to);
+      if (e1) throw new Error('кабели: ' + e1.message);
 
-      let cl = (cableLogs || []).filter((r: any) => section === 'all' || r.cables?.section === section);
-      let el = (equipLogs || []).filter((r: any) => section === 'all' || r.equipment?.section === section);
+      const { data: equipLogs, error: e2 } = await supabase
+        .from('equipment_logs')
+        .select('qty,date,note,equipment_id,user_id,equipment(section,group_name,name,unit),profiles(full_name)')
+        .gte('date', from).lt('date', to);
+      if (e2) throw new Error('оборудование: ' + e2.message);
+
+      const cl = (cableLogs || []).filter((r: any) => section === 'all' || r.cables?.section === section);
+      const el = (equipLogs || []).filter((r: any) => section === 'all' || r.equipment?.section === section);
 
       if (cl.length === 0 && el.length === 0) {
-        setStatus('За этот месяц записей не найдено — нечего выгружать.');
+        setStatus('За этот месяц записей о монтаже нет. Записи добавляются кнопкой ➕ на вкладках «Кабели» и «Оборудование».');
         setBusy(false);
         return;
       }
@@ -58,25 +64,31 @@ export default function ExportPage() {
       const cableDetailRows = (cl as any[]).map(r => ({
         'Дата': r.date, 'Раздел': r.cables?.section, 'Система': r.cables?.system,
         'Обозначение': r.cables?.tag, 'Откуда': r.cables?.start_point, 'Куда': r.cables?.end_point,
-        'Кол-во, м': r.qty, 'Кто': r.profiles?.full_name || '', 'Комментарий': r.note || '',
-      })).sort((a, b) => a['Дата'].localeCompare(b['Дата']));
+        'Кол-во, м': Number(r.qty), 'До конца': r.completed === false ? 'Нет' : 'Да',
+        'Причина остановки': r.completed === false ? (r.stop_reason || '') : '',
+        'Кто': r.profiles?.full_name || '', 'Комментарий': r.note || '',
+      })).sort((a, b) => String(a['Дата']).localeCompare(String(b['Дата'])));
 
       const equipDetailRows = (el as any[]).map(r => ({
         'Дата': r.date, 'Раздел': r.equipment?.section, 'Комплект/зона': r.equipment?.group_name,
-        'Наименование': r.equipment?.name, 'Кол-во': r.qty, 'Ед.изм.': r.equipment?.unit,
+        'Наименование': r.equipment?.name, 'Кол-во': Number(r.qty), 'Ед.изм.': r.equipment?.unit,
         'Кто': r.profiles?.full_name || '', 'Комментарий': r.note || '',
-      })).sort((a, b) => a['Дата'].localeCompare(b['Дата']));
+      })).sort((a, b) => String(a['Дата']).localeCompare(String(b['Дата'])));
 
       const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(cableSummaryRows.length ? cableSummaryRows : [{ 'Нет данных': '' }]), 'Свод — кабели');
-      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(equipSummaryRows.length ? equipSummaryRows : [{ 'Нет данных': '' }]), 'Свод — оборудование');
-      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(cableDetailRows.length ? cableDetailRows : [{ 'Нет данных': '' }]), 'Журнал — кабели');
-      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(equipDetailRows.length ? equipDetailRows : [{ 'Нет данных': '' }]), 'Журнал — оборудование');
+      const add = (rows: any[], name: string) =>
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows.length ? rows : [{ 'Нет данных': '' }]), name);
+      add(cableSummaryRows, 'Свод — кабели');
+      add(equipSummaryRows, 'Свод — оборудование');
+      const stops: Record<string, number> = {};
+      for (const r of cl as any[]) if (r.completed === false) stops[r.stop_reason || 'не указана'] = (stops[r.stop_reason || 'не указана'] || 0) + 1;
+      add(Object.entries(stops).map(([k, v]) => ({ 'Причина остановки': k, 'Случаев за месяц': v })), 'Причины остановок');
+      add(cableDetailRows, 'Журнал — кабели');
+      add(equipDetailRows, 'Журнал — оборудование');
 
-      setStatus('Скачиваю файл…');
       const filename = `Отчёт_монтаж_${month}${section !== 'all' ? '_' + section : ''}.xlsx`;
       XLSX.writeFile(wb, filename);
-      setStatus('Готово ✓');
+      setStatus(`Готово ✓ Кабелей: ${cl.length} записей, оборудования: ${el.length} записей.`);
     } catch (e: any) {
       setStatus('Ошибка: ' + (e?.message || 'не получилось сформировать файл'));
     } finally {
@@ -89,9 +101,12 @@ export default function ExportPage() {
     setStatus('Собираю данные по посещаемости…');
     try {
       const XLSX = await import('xlsx');
-      const from = month + '-01';
-      const to = month + '-31';
-      const { data } = await supabase.from('attendance').select('date,section,hours,note,profiles(full_name,position)').gte('date', from).lte('date', to).order('date');
+      const { from, to } = monthRange(month);
+      const { data, error } = await supabase
+        .from('attendance')
+        .select('date,section,hours,note,profiles(full_name,position)')
+        .gte('date', from).lt('date', to).order('date');
+      if (error) throw new Error(error.message);
       const rows = (data || []).map((r: any) => ({
         'Дата': r.date, 'ФИО': r.profiles?.full_name, 'Должность': r.profiles?.position,
         'Раздел/участок': r.section, 'Часов': r.hours, 'Примечание': r.note,
@@ -100,7 +115,7 @@ export default function ExportPage() {
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), 'Посещаемость');
       XLSX.writeFile(wb, `Посещаемость_${month}.xlsx`);
-      setStatus('Готово ✓');
+      setStatus(`Готово ✓ ${rows.length} отметок.`);
     } catch (e: any) {
       setStatus('Ошибка: ' + (e?.message || ''));
     } finally {

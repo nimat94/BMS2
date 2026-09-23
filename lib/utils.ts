@@ -27,3 +27,14 @@ export function nextStatus(cur: string): string {
   if (cur === 'Да') return 'Частично';
   return 'Нет';
 }
+
+// Correct month range: [first day of month, first day of NEXT month).
+// Use with .gte(from).lt(to) — avoids invalid dates like 2026-09-31.
+export function monthRange(ym: string): { from: string; to: string } {
+  const [y, m] = ym.split('-').map(Number);
+  const from = `${y}-${String(m).padStart(2, '0')}-01`;
+  const ny = m === 12 ? y + 1 : y;
+  const nm = m === 12 ? 1 : m + 1;
+  const to = `${ny}-${String(nm).padStart(2, '0')}-01`;
+  return { from, to };
+}

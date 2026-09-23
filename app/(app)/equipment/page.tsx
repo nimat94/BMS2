@@ -1,7 +1,9 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import type { Equipment } from '@/lib/types';
+import Link from 'next/link';
+import type { Equipment, Readiness } from '@/lib/types';
+import { readinessKey, isReady, missingMarkers, readyCount } from '@/lib/readiness';
 import { SECTIONS } from '@/lib/types';
 import { fmtNum, fmtDate, todayStr } from '@/lib/utils';
 
@@ -12,13 +14,18 @@ export default function EquipmentPage() {
   const [search, setSearch] = useState('');
   const [section, setSection] = useState('all');
   const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
-  const [modal, setModal] = useState<null | { kind: 'add'|'edit'|'history'; item: Equipment }>(null);
+  const [modal, setModal] = useState<null | { kind: 'add'|'edit'|'history'|'blocked'; item: Equipment }>(null);
+  const [readiness, setReadiness] = useState<Record<string, Readiness>>({});
   const [role, setRole] = useState<string>('installer');
 
   async function load() {
     setLoading(true);
     const { data } = await supabase.from('equipment_progress').select('*').order('section').order('group_name').order('pos');
     setItems((data || []) as Equipment[]);
+    const { data: rd } = await supabase.from('readiness').select('*').eq('kind', 'equipment');
+    const m: Record<string, Readiness> = {};
+    for (const r of (rd || []) as Readiness[]) m[readinessKey('equipment', r.section, r.front)] = r;
+    setReadiness(m);
     setLoading(false);
   }
   useEffect(() => {
@@ -82,6 +89,9 @@ export default function EquipmentPage() {
             <button onClick={() => toggleGroup(key)} className="w-full flex items-center gap-2 px-3 py-2 bg-blue-50 dark:bg-blue-950/40 text-left">
               <span className={`text-blue-700 transition-transform ${open ? 'rotate-90' : ''}`}>▶</span>
               <span className="font-medium text-sm text-blue-900 dark:text-blue-300 flex-1">{grp}</span>
+              {(() => { const r = readiness[readinessKey('equipment', sec, grp)]; const ok = isReady(r); return (
+                <span className={`badge ${ok ? 'bg-emerald-100 text-emerald-700 border-emerald-300' : 'bg-rose-100 text-rose-700 border-rose-300'}`}>{ok ? '✓ допуск' : `⛔ нет допуска ${readyCount(r)}/6`}</span>
+              ); })()}
               <span className="text-[11px] text-slate-500 hidden sm:inline">{fullyDone}/{list.length} смонтировано</span>
               <span className="w-12 h-1.5 bg-slate-200 dark:bg-slate-700 rounded overflow-hidden hidden sm:inline-block">
                 <span className="block h-full bg-emerald-500" style={{ width: `${Math.round(pct * 100)}%` }} />
@@ -94,7 +104,7 @@ export default function EquipmentPage() {
                     <span className="font-mono font-semibold min-w-[46px]">{e.pos}</span>
                     <span className="flex-1 min-w-[160px]">{e.name}<div className="text-[11px] text-slate-400">{e.model}{e.supplier ? ' · '+e.supplier : ''}</div></span>
                     <span className={`font-semibold ${(e.installed||0) >= e.qty ? 'text-emerald-600' : 'text-rose-500'}`}>{fmtNum(e.installed)} из {fmtNum(e.qty)} {e.unit}</span>
-                    <button title="Добавить запись" className="icon-btn" onClick={() => setModal({ kind: 'add', item: e })}>➕</button>
+                    <button title="Добавить запись" className="icon-btn" onClick={() => setModal({ kind: isReady(readiness[readinessKey('equipment', e.section, e.group_name || '(без группы)')]) ? 'add' : 'blocked', item: e })}>{isReady(readiness[readinessKey('equipment', e.section, e.group_name || '(без группы)')]) ? '➕' : '🔒'}</button>
                     <button title="История" className="icon-btn" onClick={() => setModal({ kind: 'history', item: e })}>🕓</button>
                     {role !== 'installer' && (
                       <button title="Изменить" className="icon-btn" onClick={() => setModal({ kind: 'edit', item: e })}>✏️</button>
@@ -108,6 +118,15 @@ export default function EquipmentPage() {
       })}
       {groups.size === 0 && <div className="text-center text-slate-400 py-16 text-sm">Ничего не найдено</div>}
 
+      {modal?.kind === 'blocked' && (
+        <ModalShell title="⛔ Монтаж не разрешён" onClose={() => setModal(null)}>
+          <div className="space-y-3 text-sm">
+            <div>По комплекту <b>{modal.item.section} · {modal.item.group_name}</b> нет допуска. Не выполнено:</div>
+            <ul className="space-y-1">{missingMarkers(readiness[readinessKey('equipment', modal.item.section, modal.item.group_name || '(без группы)')]).map(m => <li key={m} className="text-rose-600">✕ {m}</li>)}</ul>
+            <Link href="/readiness" className="btn-primary block text-center">Перейти в «Допуск»</Link>
+          </div>
+        </ModalShell>
+      )}
       {modal?.kind === 'add' && <AddEquipModal item={modal.item} onClose={() => setModal(null)} onSaved={load} />}
       {modal?.kind === 'edit' && <EditEquipModal item={modal.item} onClose={() => setModal(null)} onSaved={load} />}
       {modal?.kind === 'history' && <HistoryEquipModal equipmentId={modal.item.id} title={modal.item.name || ''} unit={modal.item.unit || ''} onClose={() => setModal(null)} />}
@@ -141,8 +160,9 @@ function AddEquipModal({ item, onClose, onSaved }: { item: Equipment; onClose: (
     if (!q) { onClose(); return; }
     setSaving(true);
     const { data: { user } } = await supabase.auth.getUser();
-    await supabase.from('equipment_logs').insert({ equipment_id: item.id, qty: q, date, user_id: user?.id, note });
-    setSaving(false); onSaved(); onClose();
+    const { error } = await supabase.from('equipment_logs').insert({ equipment_id: item.id, qty: q, date, user_id: user?.id, note });
+    setSaving(false);
+    if (error) { alert('Не сохранилось: ' + error.message); return; } onSaved(); onClose();
   }
   return (
     <ModalShell title={`Добавить монтаж — ${item.name}`} onClose={onClose}>

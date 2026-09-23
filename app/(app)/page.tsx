@@ -2,7 +2,8 @@
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { fmtNum } from '@/lib/utils';
-import { SECTIONS } from '@/lib/types';
+import { SECTIONS, READINESS_MARKERS } from '@/lib/types';
+import { readinessKey, isReady } from '@/lib/readiness';
 import Link from 'next/link';
 
 type SectionAgg = { section: string; len: number; laid: number };
@@ -19,12 +20,33 @@ export default function DashboardPage() {
   const [shieldsCount, setShieldsCount] = useState(0);
   const [pointsChecked, setPointsChecked] = useState(0);
   const [pointsTotal, setPointsTotal] = useState(0);
+  const [blockers, setBlockers] = useState<{ fronts: number; ready: number; byMarker: Record<string, number>; paused: Record<string, number>; pausedTotal: number }>({ fronts: 0, ready: 0, byMarker: {}, paused: {}, pausedTotal: 0 });
   const [worst, setWorst] = useState<{section:string;system:string;remaining:number;pct:number}[]>([]);
 
   useEffect(() => {
     (async () => {
       setLoading(true);
-      const { data: cables } = await supabase.from('cable_progress').select('section,system,length,installed');
+      const { data: cables } = await supabase.from('cable_progress').select('section,system,length,installed,last_completed,last_stop_reason');
+      const { data: rd } = await supabase.from('readiness').select('*').eq('kind', 'cable');
+      {
+        const rmap: Record<string, any> = {};
+        for (const r of (rd || []) as any[]) rmap[readinessKey('cable', r.section, r.front)] = r;
+        const fronts = new Map<string, { section: string; system: string }>();
+        for (const c of (cables || []) as any[]) fronts.set(c.section + '|' + c.system, { section: c.section, system: c.system });
+        const byMarker: Record<string, number> = {};
+        let ready = 0;
+        for (const f of fronts.values()) {
+          const r = rmap[readinessKey('cable', f.section, f.system)];
+          if (isReady(r)) { ready++; continue; }
+          for (const mk of READINESS_MARKERS) if (!r || r[mk.key] !== 'Да') byMarker[mk.label] = (byMarker[mk.label] || 0) + 1;
+        }
+        const paused: Record<string, number> = {};
+        let pausedTotal = 0;
+        for (const c of (cables || []) as any[]) if (c.last_completed === false) {
+          pausedTotal++; const k = c.last_stop_reason || 'не указана'; paused[k] = (paused[k] || 0) + 1;
+        }
+        setBlockers({ fronts: fronts.size, ready, byMarker, paused, pausedTotal });
+      }
       const { data: equip } = await supabase.from('equipment_progress').select('qty,installed');
       const { data: shields } = await supabase.from('shields').select('postavlen,ustanovlen,k_prol,k_raskl,pnr');
       const { data: points } = await supabase.from('points').select('signal,checked');
@@ -88,6 +110,25 @@ export default function DashboardPage() {
         <Stat num={Math.round(overallPct * 100) + '%'} label="Готовность по кабелям" />
         <Stat num={`${equipDone}/${equipTotal}`} label="Оборудование смонтировано" />
         <Stat num={Math.round(shieldsAvg * 100) + '%'} label={`Готовность по щитам (${shieldsCount})`} />
+      </div>
+
+      <h2 className="text-sm font-semibold text-blue-900 dark:text-blue-300 mb-2">Блокеры монтажа</h2>
+      <div className="grid sm:grid-cols-2 gap-3 mb-6">
+        <Link href="/readiness" className="block rounded-xl border border-slate-200 dark:border-slate-800 p-3 hover:bg-slate-50 dark:hover:bg-slate-800/40">
+          <div className="text-xs text-slate-500 mb-1">Допуск к монтажу (кабельные системы)</div>
+          <div className="text-lg font-bold mb-2"><span className="text-emerald-600">{blockers.ready}</span> <span className="text-slate-400 text-sm font-normal">из {blockers.fronts} фронтов с допуском</span></div>
+          {Object.entries(blockers.byMarker).sort((a, b) => b[1] - a[1]).map(([k, v]) => (
+            <div key={k} className="flex justify-between text-xs py-0.5"><span className="text-rose-600">✕ {k}</span><b>{v}</b></div>
+          ))}
+        </Link>
+        <Link href="/cables" className="block rounded-xl border border-slate-200 dark:border-slate-800 p-3 hover:bg-slate-50 dark:hover:bg-slate-800/40">
+          <div className="text-xs text-slate-500 mb-1">Трассы остановлены, не проложены до конца</div>
+          <div className="text-lg font-bold mb-2 text-amber-600">⏸ {blockers.pausedTotal}</div>
+          {Object.entries(blockers.paused).sort((a, b) => b[1] - a[1]).map(([k, v]) => (
+            <div key={k} className="flex justify-between text-xs py-0.5"><span>{k}</span><b>{v}</b></div>
+          ))}
+          {blockers.pausedTotal === 0 && <div className="text-xs text-slate-400">Остановленных трасс нет</div>}
+        </Link>
       </div>
 
       <h2 className="text-sm font-semibold text-blue-900 dark:text-blue-300 mb-2">Готовность по разделам</h2>

@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { Attendance, Profile } from '@/lib/types';
 import { SECTIONS, ROLE_LABEL } from '@/lib/types';
-import { fmtDate, todayStr } from '@/lib/utils';
+import { fmtDate, todayStr, monthRange } from '@/lib/utils';
 
 export default function AttendancePage() {
   const supabase = createClient();
@@ -27,12 +27,14 @@ export default function AttendancePage() {
       const { data: p } = await supabase.from('profiles').select('*').eq('id', user.id).single();
       setMe(p as Profile);
     }
-    const { data } = await supabase
+    const { from, to } = monthRange(month);
+    const { data, error } = await supabase
       .from('attendance')
       .select('*, profiles(full_name, position)')
-      .gte('date', month + '-01')
-      .lte('date', month + '-31')
+      .gte('date', from)
+      .lt('date', to)
       .order('date', { ascending: false });
+    if (error) setMsg('Ошибка загрузки: ' + error.message);
     setRows((data || []) as any);
     setLoading(false);
   }

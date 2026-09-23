@@ -21,6 +21,8 @@ export type Cable = {
   diam: string | null;
   disconnected: 'Да' | 'Нет' | 'Частично';
   installed?: number; // from cable_progress view
+  last_completed?: boolean | null;
+  last_stop_reason?: string | null;
 };
 
 export type Equipment = {
@@ -97,3 +99,38 @@ export type Attendance = {
 export const SECTIONS = ['АОВ-К00','АДИС','АЭС','АВК','АОВ-D','АОВ-C1','АОВ-C2','АОВ-C3'];
 export const STATUS_OPTIONS = ['Нет', 'Частично', 'Да'] as const;
 export const ROLE_LABEL: Record<string,string> = { admin: 'Администратор', engineer: 'Инженер', installer: 'Монтажник' };
+
+export type Readiness = {
+  id?: number;
+  kind: 'cable' | 'equipment';
+  section: string;
+  front: string;
+  stroy: 'Да' | 'Нет';
+  smezh: 'Да' | 'Нет';
+  materials: 'Да' | 'Нет';
+  permit: 'Да' | 'Нет';
+  docs: 'Да' | 'Нет';
+  secured: 'Да' | 'Нет';
+  note?: string;
+  updated_by?: string | null;
+  updated_at?: string | null;
+};
+
+// Маркеры допуска к монтажу (все должны быть «Да»)
+export const READINESS_MARKERS: { key: keyof Readiness; label: string; short: string }[] = [
+  { key: 'stroy',     label: 'Строительная готовность',                 short: 'Стройготовность' },
+  { key: 'smezh',     label: 'Смежные разделы готовы',                  short: 'Смежники' },
+  { key: 'materials', label: 'Оборудование и кабель на объекте',        short: 'Материал' },
+  { key: 'permit',    label: 'Разрешение ИТР заказчика на монтаж',      short: 'Разрешение ИТР' },
+  { key: 'docs',      label: 'Рабочая документация в порядке',          short: 'РД' },
+  { key: 'secured',   label: 'Нет риска кражи (двери, контроль доступа)', short: 'Защищённость' },
+];
+
+// Причины, по которым трасса не проложена до конца
+export const STOP_REASONS = [
+  'Закончился кабель',
+  'Мешают коммуникации смежных разделов',
+  'Не готова трасса',
+  'Отвлеклись на другую задачу',
+  'Другое',
+];

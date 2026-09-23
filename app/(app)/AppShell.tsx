@@ -8,6 +8,8 @@ import { ROLE_LABEL } from '@/lib/types';
 
 const NAV = [
   { href: '/', label: 'Дашборд' },
+  { href: '/readiness', label: 'Допуск' },
+  { href: '/materials', label: 'Материалы' },
   { href: '/cables', label: 'Кабели' },
   { href: '/equipment', label: 'Оборудование' },
   { href: '/shields', label: 'Щиты' },
