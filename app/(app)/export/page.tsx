@@ -96,6 +96,39 @@ export default function ExportPage() {
     }
   }
 
+  async function doJournalExport() {
+    setBusy(true);
+    setStatus('Собираю кабельный журнал…');
+    try {
+      const XLSX = await import('xlsx');
+      let q = supabase.from('cable_progress').select('*').order('section').order('system').order('tag');
+      if (section !== 'all') q = q.eq('section', section);
+      const { data, error } = await q;
+      if (error) throw new Error(error.message);
+      const rows = (data || []).map((c: any, i: number) => {
+        const len = Number(c.length) || 0, inst = Number(c.installed) || 0;
+        return {
+          '№': i + 1, 'Раздел': c.section, 'Система/щит': c.system, 'Обозначение': c.tag,
+          'Откуда': c.start_point, 'Куда': c.end_point, 'Способ прокладки': c.method, 'Труба': c.diam,
+          'Марка': c.brand, 'Сечение': c.wires, 'Длина по проекту, м': len,
+          'Проложено, м': inst, 'Остаток, м': Math.max(0, len - inst),
+          'Расключен': c.disconnected,
+          'Остановлено': c.last_completed === false ? 'Да' : '', 'Причина остановки': c.last_completed === false ? (c.last_stop_reason || '') : '',
+        };
+      });
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.json_to_sheet(rows);
+      ws['!cols'] = [5, 9, 16, 14, 34, 34, 22, 14, 18, 10, 10, 10, 10, 10, 10, 26].map(w => ({ wch: w }));
+      XLSX.utils.book_append_sheet(wb, ws, 'Кабельный журнал');
+      XLSX.writeFile(wb, `Кабельный_журнал${section !== 'all' ? '_' + section : ''}_${todayStr()}.xlsx`);
+      setStatus(`Готово ✓ ${rows.length} кабелей.`);
+    } catch (e: any) {
+      setStatus('Ошибка: ' + (e?.message || ''));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function doAttendanceExport() {
     setBusy(true);
     setStatus('Собираю данные по посещаемости…');
@@ -138,6 +171,7 @@ export default function ExportPage() {
         </select>
       </label>
       <button disabled={busy} onClick={doExport} className="btn-primary w-full mb-2">Скачать отчёт по монтажу (.xlsx)</button>
+      <button disabled={busy} onClick={doJournalExport} className="btn w-full mb-2">Скачать кабельный журнал целиком с прогрессом (.xlsx)</button>
       <button disabled={busy} onClick={doAttendanceExport} className="btn w-full">Скачать отчёт по посещаемости (.xlsx)</button>
       {status && <div className="mt-3 text-xs text-slate-500">{status}</div>}
     </div>

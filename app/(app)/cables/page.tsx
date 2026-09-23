@@ -127,28 +127,64 @@ export default function CablesPage() {
               </span>
             </button>
             {open && (
-              <div className="divide-y divide-slate-100 dark:divide-slate-800">
-                {items.map(c => (
-                  <div key={c.id} className="flex flex-wrap items-center gap-2 px-3 py-2 text-xs sm:text-sm odd:bg-slate-50/50 dark:odd:bg-slate-800/30">
-                    <span className="font-mono font-semibold min-w-[90px]">{c.tag}</span>
-                    <span className="text-slate-500 flex-1 min-w-[160px] hidden md:block">
-                      <b className="text-slate-700 dark:text-slate-300">{c.start_point}</b> → <b className="text-slate-700 dark:text-slate-300">{c.end_point}</b>
-                    </span>
-                    <span className="text-[11px] text-slate-500 hidden lg:inline min-w-[120px]">{c.brand} {c.wires}</span>
-                    {c.last_completed === false && (
-                      <span className="badge bg-amber-100 text-amber-700 border-amber-300" title="Трасса не проложена до конца">⏸ {c.last_stop_reason}</span>
-                    )}
-                    <span className={`font-semibold ${(c.installed||0) >= c.length ? 'text-emerald-600' : 'text-rose-500'}`}>{fmtNum(c.installed)}/{fmtNum(c.length)} м</span>
-                    <button onClick={() => toggleDisc(c)} className={`badge ${statusClass(c.disconnected)}`}>
-                      {c.disconnected === 'Да' ? '✓ расключен' : c.disconnected === 'Частично' ? 'частично' : 'не расключен'}
-                    </button>
-                    <button title="Добавить запись" className="icon-btn" onClick={() => openAdd(c)}>{ok ? '➕' : '🔒'}</button>
-                    <button title="История" className="icon-btn" onClick={() => setModal({ kind: 'history', cable: c })}>🕓</button>
-                    {me && me.role !== 'installer' && (
-                      <button title="Изменить" className="icon-btn" onClick={() => setModal({ kind: 'edit', cable: c })}>✏️</button>
-                    )}
-                  </div>
-                ))}
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs border-collapse min-w-[1100px]">
+                  <thead>
+                    <tr className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-left">
+                      <th className="px-2 py-1.5 border border-slate-200 dark:border-slate-700 w-8">№</th>
+                      <th className="px-2 py-1.5 border border-slate-200 dark:border-slate-700">Обозначение</th>
+                      <th className="px-2 py-1.5 border border-slate-200 dark:border-slate-700">Откуда</th>
+                      <th className="px-2 py-1.5 border border-slate-200 dark:border-slate-700">Куда</th>
+                      <th className="px-2 py-1.5 border border-slate-200 dark:border-slate-700">Способ прокладки</th>
+                      <th className="px-2 py-1.5 border border-slate-200 dark:border-slate-700">Труба</th>
+                      <th className="px-2 py-1.5 border border-slate-200 dark:border-slate-700">Марка</th>
+                      <th className="px-2 py-1.5 border border-slate-200 dark:border-slate-700">Сечение</th>
+                      <th className="px-2 py-1.5 border border-slate-200 dark:border-slate-700 text-right">Длина, м</th>
+                      <th className="px-2 py-1.5 border border-slate-200 dark:border-slate-700 text-right">Проложено, м</th>
+                      <th className="px-2 py-1.5 border border-slate-200 dark:border-slate-700 text-right">Остаток, м</th>
+                      <th className="px-2 py-1.5 border border-slate-200 dark:border-slate-700">Статус</th>
+                      <th className="px-2 py-1.5 border border-slate-200 dark:border-slate-700 w-24"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {items.map((c, i) => {
+                      const rem = Math.max(0, (c.length || 0) - (c.installed || 0));
+                      const done = (c.installed || 0) >= (c.length || 0) && (c.length || 0) > 0;
+                      return (
+                        <tr key={c.id} className={`align-top ${done ? 'bg-emerald-50/60 dark:bg-emerald-950/20' : c.last_completed === false ? 'bg-amber-50/60 dark:bg-amber-950/20' : ''}`}>
+                          <td className="px-2 py-1.5 border border-slate-200 dark:border-slate-700 text-slate-400">{i + 1}</td>
+                          <td className="px-2 py-1.5 border border-slate-200 dark:border-slate-700 font-mono font-semibold whitespace-nowrap">{c.tag}</td>
+                          <td className="px-2 py-1.5 border border-slate-200 dark:border-slate-700 min-w-[180px]">{c.start_point}</td>
+                          <td className="px-2 py-1.5 border border-slate-200 dark:border-slate-700 min-w-[180px]">{c.end_point}</td>
+                          <td className="px-2 py-1.5 border border-slate-200 dark:border-slate-700">{c.method}</td>
+                          <td className="px-2 py-1.5 border border-slate-200 dark:border-slate-700 whitespace-nowrap">{c.diam}</td>
+                          <td className="px-2 py-1.5 border border-slate-200 dark:border-slate-700 whitespace-nowrap">{c.brand}</td>
+                          <td className="px-2 py-1.5 border border-slate-200 dark:border-slate-700 whitespace-nowrap">{c.wires}</td>
+                          <td className="px-2 py-1.5 border border-slate-200 dark:border-slate-700 text-right">{fmtNum(c.length)}</td>
+                          <td className={`px-2 py-1.5 border border-slate-200 dark:border-slate-700 text-right font-semibold ${done ? 'text-emerald-600' : ''}`}>{fmtNum(c.installed)}</td>
+                          <td className={`px-2 py-1.5 border border-slate-200 dark:border-slate-700 text-right ${rem > 0 ? 'text-rose-500' : 'text-emerald-600'}`}>{fmtNum(rem)}</td>
+                          <td className="px-2 py-1.5 border border-slate-200 dark:border-slate-700">
+                            <div className="flex flex-col gap-1 items-start">
+                              <button onClick={() => toggleDisc(c)} className={`badge ${statusClass(c.disconnected)}`}>
+                                {c.disconnected === 'Да' ? '✓ расключен' : c.disconnected === 'Частично' ? 'частично' : 'не расключен'}
+                              </button>
+                              {c.last_completed === false && (
+                                <span className="badge bg-amber-100 text-amber-700 border-amber-300" title="Трасса не проложена до конца">⏸ {c.last_stop_reason}</span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-1 py-1 border border-slate-200 dark:border-slate-700 whitespace-nowrap">
+                            <button title="Добавить прокладку" className="icon-btn" onClick={() => openAdd(c)}>{ok ? '➕' : '🔒'}</button>
+                            <button title="История" className="icon-btn" onClick={() => setModal({ kind: 'history', cable: c })}>🕓</button>
+                            {me && me.role !== 'installer' && (
+                              <button title="Изменить данные" className="icon-btn" onClick={() => setModal({ kind: 'edit', cable: c })}>✏️</button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
             )}
           </div>
@@ -279,12 +315,14 @@ function EditCableModal({ cable, onClose, onSaved }: { cable: Cable; onClose: ()
   const [length, setLength] = useState(String(cable.length || 0));
   const [start, setStart] = useState(cable.start_point || '');
   const [end, setEnd] = useState(cable.end_point || '');
+  const [method, setMethod] = useState(cable.method || '');
+  const [diam, setDiam] = useState(cable.diam || '');
   const [saving, setSaving] = useState(false);
 
   async function save() {
     setSaving(true);
     await supabase.from('cables').update({
-      brand, wires, length: parseFloat(length) || 0, start_point: start, end_point: end,
+      brand, wires, length: parseFloat(length) || 0, start_point: start, end_point: end, method, diam,
     }).eq('id', cable.id);
     setSaving(false);
     onSaved();
@@ -299,6 +337,8 @@ function EditCableModal({ cable, onClose, onSaved }: { cable: Cable; onClose: ()
         <label className="block"><span className="text-xs text-slate-500">Длина по проекту, м</span><input type="number" className="inp mt-1" value={length} onChange={e => setLength(e.target.value)} /></label>
         <label className="block"><span className="text-xs text-slate-500">Откуда</span><input className="inp mt-1" value={start} onChange={e => setStart(e.target.value)} /></label>
         <label className="block"><span className="text-xs text-slate-500">Куда</span><input className="inp mt-1" value={end} onChange={e => setEnd(e.target.value)} /></label>
+        <label className="block"><span className="text-xs text-slate-500">Способ прокладки</span><input className="inp mt-1" value={method} onChange={e => setMethod(e.target.value)} /></label>
+        <label className="block"><span className="text-xs text-slate-500">Труба</span><input className="inp mt-1" value={diam} onChange={e => setDiam(e.target.value)} /></label>
         <div className="text-[11px] text-slate-400 bg-slate-50 dark:bg-slate-800 rounded-lg px-3 py-2">Правки видят все — используются вместо исходных проектных данных.</div>
         <button disabled={saving} onClick={save} className="btn-primary w-full">{saving ? 'Сохраняю…' : 'Сохранить'}</button>
       </div>

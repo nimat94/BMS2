@@ -4,6 +4,7 @@ export type Profile = {
   position: string;
   phone: string;
   role: 'admin' | 'engineer' | 'installer';
+  email?: string;
   created_at: string;
 };
 
@@ -36,6 +37,8 @@ export type Equipment = {
   unit: string | null;
   qty: number;
   installed?: number; // from equipment_progress view
+  last_date?: string | null;
+  last_user_name?: string | null;
 };
 
 export type Shield = {

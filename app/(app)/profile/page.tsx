@@ -38,8 +38,13 @@ export default function ProfilePage() {
     setMsg(error ? 'Ошибка: ' + error.message : 'Сохранено ✓');
   }
 
+  const [roleMsg, setRoleMsg] = useState('');
   async function changeRole(userId: string, role: string) {
-    await supabase.from('profiles').update({ role }).eq('id', userId);
+    setRoleMsg('');
+    const { data, error } = await supabase.from('profiles').update({ role }).eq('id', userId).select('id');
+    if (error) setRoleMsg('Не сохранилось: ' + error.message);
+    else if (!data || data.length === 0) setRoleMsg('Не сохранилось: нет прав. Выполните в Supabase миграцию migration_03_roles.sql.');
+    else setRoleMsg('Роль изменена ✓');
     load();
   }
 
@@ -53,6 +58,7 @@ export default function ProfilePage() {
         <label className="block"><span className="text-xs text-slate-500">Должность</span><input className="inp mt-1" value={position} onChange={e => setPosition(e.target.value)} placeholder="Монтажник / Инженер ПНР / Прораб" /></label>
         <label className="block"><span className="text-xs text-slate-500">Телефон</span><input className="inp mt-1" value={phone} onChange={e => setPhone(e.target.value)} /></label>
         <div className="text-xs text-slate-500">Роль: <b>{ROLE_LABEL[me.role]}</b> {me.role !== 'admin' && '(меняет администратор)'}</div>
+        {me.email && <div className="text-xs text-slate-500">Email: {me.email}</div>}
         <button disabled={saving} onClick={save} className="btn-primary">{saving ? 'Сохраняю…' : 'Сохранить'}</button>
         {msg && <div className="text-xs text-emerald-600">{msg}</div>}
       </div>
@@ -65,7 +71,7 @@ export default function ProfilePage() {
               <div key={u.id} className="flex items-center gap-2 text-sm px-3 py-2 bg-slate-50 dark:bg-slate-800 rounded-lg">
                 <div className="flex-1">
                   <div className="font-medium">{u.full_name || '(без имени)'}</div>
-                  <div className="text-[11px] text-slate-500">{u.position}{u.phone ? ' · ' + u.phone : ''}</div>
+                  <div className="text-[11px] text-slate-500">{[u.email, u.position, u.phone].filter(Boolean).join(' · ')}</div>
                 </div>
                 <select className="inp w-auto text-xs" value={u.role} onChange={e => changeRole(u.id, e.target.value)}>
                   <option value="installer">Монтажник</option>
@@ -75,6 +81,7 @@ export default function ProfilePage() {
               </div>
             ))}
           </div>
+          {roleMsg && <div className="text-xs mt-2 text-slate-600 dark:text-slate-300">{roleMsg}</div>}
           <p className="text-[11px] text-slate-400 mt-3">
             Инженеры и администраторы видят кнопку ✏️ «Изменить» на кабелях и оборудовании (правка марки/длины/наименования). Монтажники — только добавляют записи о монтаже и историю.
           </p>
