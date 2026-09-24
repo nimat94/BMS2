@@ -41,7 +41,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
-      <div className="max-w-6xl mx-auto px-3 sm:px-4 py-3">
+      <div className="w-full max-w-[1920px] mx-auto px-2 sm:px-4 py-3">
         <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
           <h1 className="text-base sm:text-lg font-semibold text-blue-900 dark:text-blue-300">
             Контроль монтажа — МФК Фрунзенская наб.

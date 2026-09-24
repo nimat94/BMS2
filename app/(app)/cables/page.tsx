@@ -57,6 +57,8 @@ export default function CablesPage() {
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(c);
     }
+    // естественная сортировка: ПВ1-2 < ПВ1-10, «(уч.2)» < «(уч.10)», участки — сразу за своим кабелем
+    for (const list of map.values()) list.sort((a, b) => a.tag.localeCompare(b.tag, 'ru', { numeric: true }));
     return map;
   }, [filtered]);
 
@@ -154,8 +156,8 @@ export default function CablesPage() {
                         <tr key={c.id} className={`align-top ${done ? 'bg-emerald-50/60 dark:bg-emerald-950/20' : c.last_completed === false ? 'bg-amber-50/60 dark:bg-amber-950/20' : ''}`}>
                           <td className="px-2 py-1.5 border border-slate-200 dark:border-slate-700 text-slate-400">{i + 1}</td>
                           <td className="px-2 py-1.5 border border-slate-200 dark:border-slate-700 font-mono font-semibold whitespace-nowrap">{c.tag}</td>
-                          <td className="px-2 py-1.5 border border-slate-200 dark:border-slate-700 min-w-[180px]">{c.start_point}</td>
-                          <td className="px-2 py-1.5 border border-slate-200 dark:border-slate-700 min-w-[180px]">{c.end_point}</td>
+                          <td className="px-2 py-1.5 border border-slate-200 dark:border-slate-700 min-w-[150px]">{c.start_point}</td>
+                          <td className="px-2 py-1.5 border border-slate-200 dark:border-slate-700 min-w-[150px]">{c.end_point}</td>
                           <td className="px-2 py-1.5 border border-slate-200 dark:border-slate-700">{c.method}</td>
                           <td className="px-2 py-1.5 border border-slate-200 dark:border-slate-700 whitespace-nowrap">{c.diam}</td>
                           <td className="px-2 py-1.5 border border-slate-200 dark:border-slate-700 whitespace-nowrap">{c.brand}</td>
