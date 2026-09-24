@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
+import { fetchAll } from '@/lib/fetchAll';
 import type { Cable, Profile, Readiness } from '@/lib/types';
 import { SECTIONS, STOP_REASONS } from '@/lib/types';
 import { fmtNum, fmtDate, todayStr, statusClass, nextStatus } from '@/lib/utils';
@@ -21,8 +22,11 @@ export default function CablesPage() {
 
   async function load() {
     setLoading(true);
-    const { data } = await supabase.from('cable_progress').select('*').order('section').order('system').order('tag');
-    setCables((data || []) as Cable[]);
+    // порядок как в кабельном журнале: раздел (как в списке разделов) → строка КЖ (ord)
+    const data = await fetchAll<Cable>(() => supabase.from('cable_progress').select('*').order('section').order('ord', { nullsFirst: false }).order('id'));
+    const secIdx = (s: string) => { const i = SECTIONS.indexOf(s); return i < 0 ? 99 : i; };
+    data.sort((a, b) => secIdx(a.section) - secIdx(b.section) || (a.ord ?? 1e9) - (b.ord ?? 1e9) || a.tag.localeCompare(b.tag, 'ru', { numeric: true }));
+    setCables(data);
     const { data: rd } = await supabase.from('readiness').select('*').eq('kind', 'cable');
     const m: Record<string, Readiness> = {};
     for (const r of (rd || []) as Readiness[]) m[readinessKey('cable', r.section, r.front)] = r;
@@ -57,8 +61,6 @@ export default function CablesPage() {
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(c);
     }
-    // естественная сортировка: ПВ1-2 < ПВ1-10, «(уч.2)» < «(уч.10)», участки — сразу за своим кабелем
-    for (const list of map.values()) list.sort((a, b) => a.tag.localeCompare(b.tag, 'ru', { numeric: true }));
     return map;
   }, [filtered]);
 
@@ -162,9 +164,9 @@ export default function CablesPage() {
                           <td className="px-2 py-1.5 border border-slate-200 dark:border-slate-700 whitespace-nowrap">{c.diam}</td>
                           <td className="px-2 py-1.5 border border-slate-200 dark:border-slate-700 whitespace-nowrap">{c.brand}</td>
                           <td className="px-2 py-1.5 border border-slate-200 dark:border-slate-700 whitespace-nowrap">{c.wires}</td>
-                          <td className="px-2 py-1.5 border border-slate-200 dark:border-slate-700 text-right">{fmtNum(c.length)}</td>
+                          <td className="px-2 py-1.5 border border-slate-200 dark:border-slate-700 text-right">{c.length ? fmtNum(c.length) : <span className="text-amber-600" title="Длина в КЖ не задана — укажите через ✏️">не задана</span>}</td>
                           <td className={`px-2 py-1.5 border border-slate-200 dark:border-slate-700 text-right font-semibold ${done ? 'text-emerald-600' : ''}`}>{fmtNum(c.installed)}</td>
-                          <td className={`px-2 py-1.5 border border-slate-200 dark:border-slate-700 text-right ${rem > 0 ? 'text-rose-500' : 'text-emerald-600'}`}>{fmtNum(rem)}</td>
+                          <td className={`px-2 py-1.5 border border-slate-200 dark:border-slate-700 text-right ${rem > 0 ? 'text-rose-500' : 'text-emerald-600'}`}>{c.length ? fmtNum(rem) : '—'}</td>
                           <td className="px-2 py-1.5 border border-slate-200 dark:border-slate-700">
                             <div className="flex flex-col gap-1 items-start">
                               <button onClick={() => toggleDisc(c)} className={`badge ${statusClass(c.disconnected)}`}>

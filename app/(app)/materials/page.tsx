@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { fetchAll } from '@/lib/fetchAll';
 import type { Profile } from '@/lib/types';
 import { SECTIONS } from '@/lib/types';
 import { fmtNum, fmtDate, todayStr } from '@/lib/utils';
@@ -40,8 +41,8 @@ export default function MaterialsPage() {
     }
     const { data: ps } = await supabase.from('profiles').select('*').order('full_name');
     setPeople((ps || []) as Profile[]);
-    const { data: cp } = await supabase.from('cable_progress').select('section,system,brand,wires,length,installed');
-    setCables(cp || []);
+    const cp = await fetchAll(() => supabase.from('cable_progress').select('section,system,brand,wires,length,installed').order('id'));
+    setCables(cp);
     const { data: is, error } = await supabase.from('material_issues').select('*').order('date', { ascending: false }).order('id', { ascending: false });
     if (error) setMsg('Ошибка загрузки: ' + error.message + ' (выполнена ли миграция migration_02_readiness.sql?)');
     setIssues((is || []) as Issue[]);

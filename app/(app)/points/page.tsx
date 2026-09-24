@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { fetchAll } from '@/lib/fetchAll';
 import type { Point } from '@/lib/types';
 
 export default function PointsPage() {
@@ -12,8 +13,8 @@ export default function PointsPage() {
 
   async function load() {
     setLoading(true);
-    const { data } = await supabase.from('points').select('*').order('cabinet').order('id');
-    setPoints((data || []) as Point[]);
+    const data = await fetchAll(() => supabase.from('points').select('*').order('cabinet').order('id'));
+    setPoints(data as Point[]);
     setLoading(false);
   }
   useEffect(() => { load(); }, []);

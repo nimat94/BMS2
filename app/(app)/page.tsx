@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { fetchAll } from '@/lib/fetchAll';
 import { fmtNum } from '@/lib/utils';
 import { SECTIONS, READINESS_MARKERS } from '@/lib/types';
 import { readinessKey, isReady } from '@/lib/readiness';
@@ -26,7 +27,7 @@ export default function DashboardPage() {
   useEffect(() => {
     (async () => {
       setLoading(true);
-      const { data: cables } = await supabase.from('cable_progress').select('section,system,length,installed,last_completed,last_stop_reason');
+      const cables = await fetchAll(() => supabase.from('cable_progress').select('section,system,length,installed,last_completed,last_stop_reason').order('id'));
       const { data: rd } = await supabase.from('readiness').select('*').eq('kind', 'cable');
       {
         const rmap: Record<string, any> = {};
@@ -47,9 +48,9 @@ export default function DashboardPage() {
         }
         setBlockers({ fronts: fronts.size, ready, byMarker, paused, pausedTotal });
       }
-      const { data: equip } = await supabase.from('equipment_progress').select('qty,installed');
+      const equip = await fetchAll(() => supabase.from('equipment_progress').select('qty,installed').order('id'));
       const { data: shields } = await supabase.from('shields').select('postavlen,ustanovlen,k_prol,k_raskl,pnr');
-      const { data: points } = await supabase.from('points').select('signal,checked');
+      const points = await fetchAll(() => supabase.from('points').select('signal,checked').order('id'));
 
       if (cables) {
         let tl = 0, ll = 0;

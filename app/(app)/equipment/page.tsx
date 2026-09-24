@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
+import { fetchAll } from '@/lib/fetchAll';
 import type { Equipment, Readiness } from '@/lib/types';
 import { SECTIONS } from '@/lib/types';
 import { fmtNum, fmtDate, todayStr } from '@/lib/utils';
@@ -24,8 +25,10 @@ export default function EquipmentPage() {
 
   async function load() {
     setLoading(true);
-    const { data } = await supabase.from('equipment_progress').select('*').order('section').order('id');
-    setItems((data || []) as Equipment[]);
+    const data = await fetchAll(() => supabase.from('equipment_progress').select('*').order('section').order('ord', { nullsFirst: false }).order('id'));
+    const secIdx = (s: string) => { const i = SECTIONS.indexOf(s); return i < 0 ? 99 : i; };
+    data.sort((a: any, b: any) => secIdx(a.section) - secIdx(b.section));
+    setItems(data as Equipment[]);
     const { data: rd } = await supabase.from('readiness').select('*').eq('kind', 'equipment');
     const m: Record<string, Readiness> = {};
     for (const r of (rd || []) as Readiness[]) m[readinessKey('equipment', r.section, r.front)] = r;

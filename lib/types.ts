@@ -24,6 +24,7 @@ export type Cable = {
   installed?: number; // from cable_progress view
   last_completed?: boolean | null;
   last_stop_reason?: string | null;
+  ord?: number | null; // порядковый номер строки в КЖ
 };
 
 export type Equipment = {
@@ -37,6 +38,7 @@ export type Equipment = {
   unit: string | null;
   qty: number;
   installed?: number; // from equipment_progress view
+  ord?: number | null; // порядок в спецификации
   last_date?: string | null;
   last_user_name?: string | null;
 };

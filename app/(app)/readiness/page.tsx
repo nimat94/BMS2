@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { fetchAll } from '@/lib/fetchAll';
 import type { Readiness, Profile } from '@/lib/types';
 import { SECTIONS, READINESS_MARKERS } from '@/lib/types';
 import { readinessKey, emptyReadiness, isReady, readyCount } from '@/lib/readiness';
@@ -27,8 +28,8 @@ export default function ReadinessPage() {
       const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single();
       setMe(data as Profile);
     }
-    const { data: cab } = await supabase.from('cables').select('section,system');
-    const { data: eq } = await supabase.from('equipment').select('section,group_name');
+    const cab = await fetchAll(() => supabase.from('cables').select('section,system,ord').order('section').order('ord').order('id'));
+    const eq = await fetchAll(() => supabase.from('equipment').select('section,group_name,ord').order('section').order('ord').order('id'));
     const fm = new Map<string, Front>();
     for (const c of (cab || []) as any[]) {
       const k = readinessKey('cable', c.section, c.system);

@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { fetchAll } from '@/lib/fetchAll';
 import { SECTIONS } from '@/lib/types';
 import { todayStr, monthRange } from '@/lib/utils';
 
@@ -18,17 +19,15 @@ export default function ExportPage() {
       const XLSX = await import('xlsx');
       const { from, to } = monthRange(month);
 
-      const { data: cableLogs, error: e1 } = await supabase
+      const cableLogs = await fetchAll(() => supabase
         .from('cable_logs')
         .select('qty,date,note,cable_id,user_id,completed,stop_reason,cables(section,system,tag,start_point,end_point),profiles(full_name)')
-        .gte('date', from).lt('date', to);
-      if (e1) throw new Error('кабели: ' + e1.message);
+        .gte('date', from).lt('date', to).order('id'));
 
-      const { data: equipLogs, error: e2 } = await supabase
+      const equipLogs = await fetchAll(() => supabase
         .from('equipment_logs')
         .select('qty,date,note,equipment_id,user_id,equipment(section,group_name,name,unit),profiles(full_name)')
-        .gte('date', from).lt('date', to);
-      if (e2) throw new Error('оборудование: ' + e2.message);
+        .gte('date', from).lt('date', to).order('id'));
 
       const cl = (cableLogs || []).filter((r: any) => section === 'all' || r.cables?.section === section);
       const el = (equipLogs || []).filter((r: any) => section === 'all' || r.equipment?.section === section);
@@ -101,10 +100,11 @@ export default function ExportPage() {
     setStatus('Собираю кабельный журнал…');
     try {
       const XLSX = await import('xlsx');
-      let q = supabase.from('cable_progress').select('*').order('section').order('system').order('tag');
-      if (section !== 'all') q = q.eq('section', section);
-      const { data, error } = await q;
-      if (error) throw new Error(error.message);
+      const data = await fetchAll(() => {
+        let q = supabase.from('cable_progress').select('*');
+        if (section !== 'all') q = q.eq('section', section);
+        return q.order('section').order('ord', { nullsFirst: false }).order('id');
+      });
       const rows = (data || []).map((c: any, i: number) => {
         const len = Number(c.length) || 0, inst = Number(c.installed) || 0;
         return {
