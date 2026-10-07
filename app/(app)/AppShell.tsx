@@ -15,6 +15,7 @@ const NAV = [
   { href: '/shields', label: 'Щиты' },
   { href: '/points', label: 'Точки АДИС' },
   { href: '/attendance', label: 'Посещаемость' },
+  { href: '/projects', label: 'Проекты' },
   { href: '/export', label: 'Экспорт' },
 ];
 
@@ -26,6 +27,7 @@ const TABS = [
   { href: '/attendance', label: 'Отметка', icon: 'check' },
 ] as const;
 const MORE = [
+  { href: '/projects', label: 'Проекты (PDF)', icon: '📐' },
   { href: '/readiness', label: 'Допуск к монтажу', icon: '🚦' },
   { href: '/materials', label: 'Материалы', icon: '📦' },
   { href: '/shields', label: 'Щиты', icon: '🗄' },

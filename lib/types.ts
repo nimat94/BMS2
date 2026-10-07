@@ -101,7 +101,21 @@ export type Attendance = {
   created_at: string;
 };
 
-export const SECTIONS = ['АОВ-К00','АДИС','АЭС','АВК','АОВ-D','АОВ-C1','АОВ-C2','АОВ-C3'];
+export type ProjectDoc = {
+  id: number;
+  section: string;
+  code: string | null;
+  title: string;
+  note: string | null;
+  file_path: string;
+  file_name: string | null;
+  size: number | null;
+  uploaded_by: string | null;
+  created_at: string;
+  profiles?: { full_name: string } | null;
+};
+
+export const SECTIONS =['АОВ-К00','АДИС','АЭС','АВК','АОВ-D','АОВ-C1','АОВ-C2','АОВ-C3'];
 export const STATUS_OPTIONS = ['Нет', 'Частично', 'Да'] as const;
 export const ROLE_LABEL: Record<string,string> = { admin: 'Администратор', engineer: 'Инженер', installer: 'Монтажник' };
 
