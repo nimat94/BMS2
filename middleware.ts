@@ -50,5 +50,6 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|robots.txt|.*\\.png$).*)'],
+  // manifest.webmanifest и иконки должны отдаваться без входа — иначе «на главный экран» не работает
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|robots.txt|manifest.webmanifest|.*\\.png$).*)'],
 };

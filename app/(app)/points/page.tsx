@@ -43,7 +43,7 @@ export default function PointsPage() {
   return (
     <div>
       <div className="flex gap-2 mb-3">
-        <input className="inp flex-1" placeholder="Поиск по точкам…" value={search} onChange={e=>setSearch(e.target.value)} />
+        <input type="search" enterKeyHint="search" className="inp flex-1" placeholder="Поиск по точкам…" value={search} onChange={e=>setSearch(e.target.value)} />
         <span className="text-xs text-slate-400 self-center whitespace-nowrap">{filtered.length} из {points.length}</span>
       </div>
       {[...groups.entries()].map(([cab, list]) => {
@@ -52,7 +52,7 @@ export default function PointsPage() {
         const isOpen = open.has(cab) || !!search;
         return (
           <div key={cab} className="border border-slate-200 dark:border-slate-800 rounded-lg mb-2 overflow-hidden">
-            <button onClick={() => { const s=new Set(open); s.has(cab)?s.delete(cab):s.add(cab); setOpen(s); }} className="w-full flex items-center gap-2 px-3 py-2 bg-blue-50 dark:bg-blue-950/40 text-left">
+            <button onClick={() => { const s=new Set(open); s.has(cab)?s.delete(cab):s.add(cab); setOpen(s); }} className="w-full flex items-center gap-2 px-3 py-3 sm:py-2 bg-blue-50 dark:bg-blue-950/40 text-left">
               <span className={`text-blue-700 transition-transform ${isOpen?'rotate-90':''}`}>▶</span>
               <span className="font-medium text-sm text-blue-900 dark:text-blue-300 flex-1">{cab}</span>
               <span className="text-[11px] text-slate-500">{done}/{checkable.length} проверено</span>
@@ -60,12 +60,12 @@ export default function PointsPage() {
             {isOpen && (
               <div className="divide-y divide-slate-100 dark:divide-slate-800">
                 {list.map(p => (
-                  <div key={p.id} className="flex items-center gap-2 px-3 py-1.5 text-xs sm:text-sm">
+                  <div key={p.id} className="flex items-center gap-2 px-3 py-2 sm:py-1.5 text-sm">
                     <span className="font-mono w-10">#{p.num}</span>
                     <span className="w-16 text-slate-500">{p.io}</span>
                     <span className="flex-1">{p.signal ? p.signal : <i className="text-slate-400">(резерв)</i>}</span>
                     {p.signal && (
-                      <button onClick={() => toggle(p)} className={`badge ${p.checked==='Да' ? 'bg-emerald-100 text-emerald-700 border-emerald-300' : 'bg-slate-100 text-slate-500 border-slate-300'}`}>
+                      <button onClick={() => toggle(p)} className={`chip shrink-0 ${p.checked==='Да' ? 'bg-emerald-100 text-emerald-700 border-emerald-300' : 'bg-slate-100 text-slate-500 border-slate-300'}`}>
                         {p.checked==='Да' ? '✓ проверено' : 'не проверено'}
                       </button>
                     )}

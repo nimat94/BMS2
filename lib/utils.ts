@@ -2,8 +2,16 @@ export function fmtNum(n: number | null | undefined): string {
   return (Math.round((n || 0) * 10) / 10).toLocaleString('ru-RU');
 }
 
+// Сегодняшняя дата по местному времени телефона (toISOString давал вчерашнюю дату до 03:00 МСК)
+// Число из поля ввода: на телефонах с русской раскладкой дробь вводится через запятую («12,5»)
+export function parseNum(s: string | null | undefined): number {
+  const n = parseFloat(String(s ?? '').replace(/\s/g, '').replace(',', '.'));
+  return Number.isFinite(n) ? n : 0;
+}
+
 export function todayStr(): string {
-  return new Date().toISOString().slice(0, 10);
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 export function fmtDate(d: string | null | undefined): string {

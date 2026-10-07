@@ -64,7 +64,7 @@ export default function ShieldsPage() {
   return (
     <div>
       <div className="flex gap-2 mb-3">
-        <input className="inp flex-1" placeholder="Поиск по щитам…" value={search} onChange={e=>setSearch(e.target.value)} />
+        <input type="search" enterKeyHint="search" className="inp flex-1" placeholder="Поиск по щитам…" value={search} onChange={e=>setSearch(e.target.value)} />
         <span className="text-xs text-slate-400 self-center whitespace-nowrap">{filtered.length} из {shields.length}</span>
       </div>
       {[...groups.entries()].map(([sec, list]) => (
@@ -73,16 +73,16 @@ export default function ShieldsPage() {
           <div className="divide-y divide-slate-100 dark:divide-slate-800">
             {list.map(s => (
               <div key={s.id} className="flex flex-wrap items-center gap-2 px-3 py-2.5 text-xs sm:text-sm">
-                <div className="min-w-[140px]">
+                <div className="min-w-[140px] basis-full sm:basis-auto">
                   <div className="font-mono font-bold">{s.tag}</div>
                   <div className="text-[11px] text-slate-500">{s.purpose}{s.qty>1?` · ${s.qty} шт`:''}</div>
                 </div>
                 <div className="flex flex-wrap gap-1 flex-1">
                   {STAGES.map(st => (
-                    <button key={st.key} onClick={() => toggleStage(s, st.key)} className={`badge ${statusClass(s[st.key] as string)}`}>{st.label}</button>
+                    <button key={st.key} onClick={() => toggleStage(s, st.key)} className={`chip ${statusClass(s[st.key] as string)}`}>{st.label}</button>
                   ))}
                 </div>
-                <span className="font-bold w-10 text-right">{Math.round(pct(s)*100)}%</span>
+                <span className="font-bold w-10 text-right ml-auto">{Math.round(pct(s)*100)}%</span>
                 {s.resp_id && <span className="text-[10px] text-slate-400 w-24">{fmtDate(s.resp_date)} {names[s.resp_id]||''}</span>}
               </div>
             ))}

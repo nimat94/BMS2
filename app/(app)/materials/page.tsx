@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/client';
 import { fetchAll } from '@/lib/fetchAll';
 import type { Profile } from '@/lib/types';
 import { SECTIONS } from '@/lib/types';
-import { fmtNum, fmtDate, todayStr } from '@/lib/utils';
+import { fmtNum, fmtDate, todayStr, parseNum } from '@/lib/utils';
 
 type Issue = {
   id: number; section: string; front: string; brand: string; wires: string; unit: string;
@@ -67,7 +67,7 @@ export default function MaterialsPage() {
   const nameOf = (id: string | null) => people.find(p => p.id === id)?.full_name || '—';
 
   async function save() {
-    const q = parseFloat(qty);
+    const q = parseNum(qty);
     if (!q || !front || !brandKey) { setMsg('Заполните систему, марку и количество'); return; }
     setSaving(true); setMsg('');
     const [brand, wires] = brandKey.split('|');
@@ -127,7 +127,7 @@ export default function MaterialsPage() {
             {brands.map(b => <option key={`${b.brand}|${b.wires}`} value={`${b.brand}|${b.wires}`}>{b.brand} {b.wires} (по проекту {fmtNum(b.need)} м)</option>)}
           </select></label>
         <label className="block"><span className="text-xs text-slate-500">Количество, м</span>
-          <input type="number" className="inp mt-1" value={qty} onChange={e => setQty(e.target.value)} placeholder={sel ? `до ${fmtNum(sel.need)}` : ''} /></label>
+          <input type="text" inputMode="decimal" className="inp mt-1" value={qty} onChange={e => setQty(e.target.value)} placeholder={sel ? `до ${fmtNum(sel.need)}` : ''} /></label>
         <label className="block"><span className="text-xs text-slate-500">Кому выдано</span>
           <select className="inp mt-1" value={issuedTo} onChange={e => setIssuedTo(e.target.value)}>
             {people.map(p => <option key={p.id} value={p.id}>{p.full_name || '(без имени)'}{p.position ? ' — ' + p.position : ''}</option>)}
@@ -136,7 +136,7 @@ export default function MaterialsPage() {
           <input type="date" className="inp mt-1" value={date} onChange={e => setDate(e.target.value)} /></label>
         <label className="block sm:col-span-2"><span className="text-xs text-slate-500">Примечание</span>
           <input className="inp mt-1" value={note} onChange={e => setNote(e.target.value)} placeholder="бухта №…, склад…" /></label>
-        <button disabled={saving} onClick={save} className="btn-primary self-end h-[38px]">{saving ? '…' : 'Выписать'}</button>
+        <button disabled={saving} onClick={save} className="btn-primary self-end text-base sm:text-sm sm:h-[38px]">{saving ? '…' : 'Выписать'}</button>
       </div>
       {msg && <div className="text-xs mb-4 text-slate-600 dark:text-slate-300">{msg}</div>}
 

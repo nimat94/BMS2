@@ -5,8 +5,9 @@ import { createClient } from '@/lib/supabase/client';
 import { fetchAll } from '@/lib/fetchAll';
 import type { Cable, Profile, Readiness } from '@/lib/types';
 import { SECTIONS, STOP_REASONS } from '@/lib/types';
-import { fmtNum, fmtDate, todayStr, statusClass, nextStatus } from '@/lib/utils';
+import { fmtNum, fmtDate, todayStr, statusClass, nextStatus, parseNum } from '@/lib/utils';
 import { readinessKey, isReady, missingMarkers, readyCount } from '@/lib/readiness';
+import Sheet from '@/components/Sheet';
 
 export default function CablesPage() {
   const supabase = createClient();
@@ -92,18 +93,20 @@ export default function CablesPage() {
 
   return (
     <div>
-      <div className="flex flex-wrap gap-2 mb-3 items-center">
-        <div className="relative flex-1 min-w-[200px]">
-          <input className="inp pl-3" placeholder="Поиск: обозначение, помещение, марка…" value={search} onChange={e => setSearch(e.target.value)} />
+      <div className="sticky top-12 sm:static z-20 -mx-3 px-3 sm:mx-0 sm:px-0 pt-1 pb-2 sm:pb-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur sm:bg-transparent sm:backdrop-blur-none flex flex-wrap gap-2 mb-2 sm:mb-3 items-center">
+        <div className="relative flex-1 basis-full sm:basis-auto min-w-[200px]">
+          <input type="search" enterKeyHint="search" className="inp pl-3 pr-10" placeholder="Поиск: СКЗ.1-2, помещение, марка…" value={search} onChange={e => setSearch(e.target.value)} />
+          {search && <button aria-label="Очистить" onClick={() => setSearch('')} className="absolute right-0 top-0 h-full w-10 text-slate-400 text-lg">✕</button>}
         </div>
-        <select className="inp w-auto" value={section} onChange={e => setSection(e.target.value)}>
+        <select className="inp w-auto flex-1 sm:flex-none" value={section} onChange={e => setSection(e.target.value)}>
           <option value="all">Все разделы</option>
           {SECTIONS.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
-        <label className="text-xs flex items-center gap-1">
-          <input type="checkbox" checked={onlyPaused} onChange={e => setOnlyPaused(e.target.checked)} /> только остановленные ⏸ ({pausedCount})
-        </label>
-        <span className="text-xs text-slate-400">{filtered.length} из {cables.length}</span>
+        <button type="button" onClick={() => setOnlyPaused(v => !v)}
+          className={`chip min-h-11 sm:min-h-0 ${onlyPaused ? 'bg-amber-100 text-amber-700 border-amber-300' : 'border-slate-300 text-slate-600 dark:text-slate-300'}`}>
+          ⏸ остановленные ({pausedCount})
+        </button>
+        <span className="text-xs text-slate-400 w-full sm:w-auto">{filtered.length} из {cables.length}</span>
       </div>
 
       {[...groups.entries()].map(([key, items]) => {
@@ -118,20 +121,31 @@ export default function CablesPage() {
         const ok = isReady(r);
         return (
           <div key={key} className="border border-slate-200 dark:border-slate-800 rounded-lg mb-2 overflow-hidden">
-            <button onClick={() => toggleGroup(key)} className="w-full flex flex-wrap items-center gap-2 px-3 py-2 bg-blue-50 dark:bg-blue-950/40 text-left">
+            <button onClick={() => toggleGroup(key)} className="w-full flex flex-wrap items-center gap-x-2 gap-y-1 px-3 py-3 sm:py-2 bg-blue-50 dark:bg-blue-950/40 text-left">
               <span className={`text-blue-700 transition-transform ${open ? 'rotate-90' : ''}`}>▶</span>
               <span className="font-medium text-sm text-blue-900 dark:text-blue-300 flex-1">{section === 'all' ? <span className="text-[11px] text-slate-500 mr-1">{sec}</span> : null}{sys}</span>
               <span className={`badge ${ok ? 'bg-emerald-100 text-emerald-700 border-emerald-300' : 'bg-rose-100 text-rose-700 border-rose-300'}`}>
                 {ok ? '✓ допуск' : `⛔ нет допуска ${readyCount(r)}/6`}
               </span>
               {paused > 0 && <span className="badge bg-amber-100 text-amber-700 border-amber-300">⏸ {paused}</span>}
-              <span className="text-[11px] text-slate-500 hidden sm:inline">{items.length} каб. · {fmtNum(laid)}/{fmtNum(len)} м · расключено {discDone}/{items.length}</span>
+              <span className="text-[11px] text-slate-500 basis-full sm:basis-auto pl-5 sm:pl-0">{items.length} каб. · {fmtNum(laid)}/{fmtNum(len)} м · расключено {discDone}/{items.length}</span>
               <span className="w-12 h-1.5 bg-slate-200 dark:bg-slate-700 rounded overflow-hidden hidden sm:inline-block">
+                <span className="block h-full bg-emerald-500" style={{ width: `${Math.round(pct * 100)}%` }} />
+              </span>
+              <span className="sm:hidden basis-full ml-5 h-1.5 bg-slate-200 dark:bg-slate-700 rounded overflow-hidden">
                 <span className="block h-full bg-emerald-500" style={{ width: `${Math.round(pct * 100)}%` }} />
               </span>
             </button>
             {open && (
-              <div className="overflow-x-auto">
+              <div className="sm:hidden">
+                <CableCards items={items} ok={ok} canEdit={!!me && me.role !== 'installer'}
+                  onAdd={openAdd} onDisc={toggleDisc}
+                  onHistory={c => setModal({ kind: 'history', cable: c })}
+                  onEdit={c => setModal({ kind: 'edit', cable: c })} />
+              </div>
+            )}
+            {open && (
+              <div className="hidden sm:block overflow-x-auto">
                 <table className="w-full text-xs border-collapse min-w-[1100px]">
                   <thead>
                     <tr className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-left">
@@ -212,24 +226,81 @@ export default function CablesPage() {
   );
 }
 
-function ModalShell({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
+// Список кабелей карточками — для телефона. Рисуем порциями, чтобы не тормозило на длинных системах.
+function CableCards({ items, ok, canEdit, onAdd, onDisc, onHistory, onEdit }: {
+  items: Cable[]; ok: boolean; canEdit: boolean;
+  onAdd: (c: Cable) => void; onDisc: (c: Cable) => void;
+  onHistory: (c: Cable) => void; onEdit: (c: Cable) => void;
+}) {
+  const [limit, setLimit] = useState(40);
+  const shown = items.slice(0, limit);
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/45" onClick={onClose} />
-      <div className="relative bg-white dark:bg-slate-900 rounded-2xl w-[min(440px,92vw)] max-h-[85vh] overflow-auto shadow-xl">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-slate-800">
-          <span className="font-semibold text-sm">{title}</span>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200">✕</button>
+    <div className="divide-y divide-slate-200 dark:divide-slate-800">
+      {shown.map(c => {
+        const len = c.length || 0;
+        const inst = c.installed || 0;
+        const rem = Math.max(0, len - inst);
+        const done = inst >= len && len > 0;
+        const pct = len ? Math.min(1, inst / len) : 0;
+        return (
+          <div key={c.id} className={`px-3 py-3 ${done ? 'bg-emerald-50/60 dark:bg-emerald-950/20' : c.last_completed === false ? 'bg-amber-50/60 dark:bg-amber-950/20' : ''}`}>
+            <div className="flex items-start gap-2">
+              <div className="flex-1 min-w-0">
+                <div className="font-mono font-semibold text-base leading-tight break-all">{c.tag}</div>
+                <div className="text-[13px] text-slate-600 dark:text-slate-300 mt-1 leading-snug">
+                  {c.start_point} <span className="text-slate-400">→</span> {c.end_point}
+                </div>
+                <div className="text-xs text-slate-500 mt-0.5">
+                  {[c.brand, c.wires].filter(Boolean).join(' ')}{c.method ? ' · ' + c.method : ''}{c.diam ? ' · ' + c.diam : ''}
+                </div>
+              </div>
+              <button onClick={() => onDisc(c)} className={`chip shrink-0 ${statusClass(c.disconnected)}`}>
+                {c.disconnected === 'Да' ? '✓ расключен' : c.disconnected === 'Частично' ? 'частично' : 'не расключен'}
+              </button>
+            </div>
+
+            <div className="mt-2">
+              <div className="flex justify-between text-xs mb-1">
+                <span>
+                  <b className={done ? 'text-emerald-600' : ''}>{fmtNum(inst)}</b>
+                  <span className="text-slate-500"> из {len ? fmtNum(len) + ' м' : <span className="text-amber-600">длина не задана</span>}</span>
+                </span>
+                {len > 0 && <span className={rem > 0 ? 'text-rose-500' : 'text-emerald-600'}>{rem > 0 ? `осталось ${fmtNum(rem)} м` : '✓ проложен'}</span>}
+              </div>
+              <div className="h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                <div className={`h-full ${done ? 'bg-emerald-500' : 'bg-blue-600'}`} style={{ width: `${Math.round(pct * 100)}%` }} />
+              </div>
+            </div>
+
+            {c.last_completed === false && (
+              <div className="mt-2 text-xs bg-amber-100/70 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 rounded-lg px-2.5 py-1.5">⏸ Остановились: {c.last_stop_reason}</div>
+            )}
+
+            <div className="flex gap-2 mt-2.5">
+              {!done && (
+                <button onClick={() => onAdd(c)} className={`flex-1 ${ok ? 'btn-primary' : 'btn text-rose-600'}`}>
+                  {ok ? '+ Проложено' : '🔒 Нет допуска'}
+                </button>
+              )}
+              {done && <button onClick={() => onAdd(c)} className="btn flex-1">+ Добавить</button>}
+              <button onClick={() => onHistory(c)} className="btn w-12 shrink-0" aria-label="История">🕓</button>
+              {canEdit && <button onClick={() => onEdit(c)} className="btn w-12 shrink-0" aria-label="Изменить данные">✏️</button>}
+            </div>
+          </div>
+        );
+      })}
+      {items.length > limit && (
+        <div className="p-3">
+          <button className="btn w-full" onClick={() => setLimit(l => l + 40)}>Показать ещё ({items.length - limit})</button>
         </div>
-        <div className="p-4">{children}</div>
-      </div>
+      )}
     </div>
   );
 }
 
 function BlockedModal({ title, missing, onClose }: { title: string; missing: string[]; onClose: () => void }) {
   return (
-    <ModalShell title="⛔ Монтаж не разрешён" onClose={onClose}>
+    <Sheet title="⛔ Монтаж не разрешён" onClose={onClose}>
       <div className="space-y-3 text-sm">
         <div className="text-slate-600 dark:text-slate-300">По фронту <b>{title}</b> нет допуска к монтажу. Не выполнено:</div>
         <ul className="space-y-1">
@@ -238,7 +309,7 @@ function BlockedModal({ title, missing, onClose }: { title: string; missing: str
         <div className="text-xs text-slate-500">Маркеры отмечает инженер или администратор в разделе «Допуск».</div>
         <Link href="/readiness" className="btn-primary block text-center">Перейти в «Допуск»</Link>
       </div>
-    </ModalShell>
+    </Sheet>
   );
 }
 
@@ -254,7 +325,7 @@ function AddCableModal({ cable, onClose, onSaved }: { cable: Cable; onClose: () 
   const [err, setErr] = useState('');
 
   // подсказка: если метраж закрывает остаток — по умолчанию «до конца»
-  const q = parseFloat(qty) || 0;
+  const q = parseNum(qty);
   const effectiveCompleted = completed === null ? (q > 0 && q >= remaining) : completed;
 
   async function save() {
@@ -273,31 +344,42 @@ function AddCableModal({ cable, onClose, onSaved }: { cable: Cable; onClose: () 
   }
 
   return (
-    <ModalShell title={`Прокладка — ${cable.tag}`} onClose={onClose}>
+    <Sheet title={`Прокладка — ${cable.tag}`} onClose={onClose}
+      footer={<>
+        {err && <div className="text-xs text-rose-600 mb-2">{err}</div>}
+        <button disabled={saving} onClick={save} className="btn-primary w-full text-base sm:text-sm">{saving ? 'Сохраняю…' : 'Сохранить'}</button>
+      </>}>
       <div className="space-y-3 text-sm">
-        <div className="text-slate-500">{cable.start_point} → {cable.end_point}</div>
+        <div className="text-slate-600 dark:text-slate-300">{cable.start_point} → {cable.end_point}</div>
         <div className="text-slate-500">{cable.brand} {cable.wires} · проложено {fmtNum(cable.installed)} из {fmtNum(cable.length)} м · <b>остаток {fmtNum(remaining)} м</b></div>
         {cable.last_completed === false && <div className="text-xs bg-amber-50 dark:bg-amber-950/40 text-amber-700 rounded-lg px-3 py-2">Прошлый раз остановились: {cable.last_stop_reason}</div>}
-        <div className="grid grid-cols-2 gap-3">
-          <label className="block"><span className="text-xs text-slate-500">Дата</span><input type="date" className="inp mt-1" value={date} onChange={e => setDate(e.target.value)} /></label>
-          <label className="block"><span className="text-xs text-slate-500">Проложили сегодня, м</span><input type="number" className="inp mt-1" value={qty} onChange={e => setQty(e.target.value)} autoFocus /></label>
-        </div>
 
-        <div>
+        <label className="block">
+          <span className="text-xs text-slate-500">Проложили, м</span>
+          <div className="flex gap-2 mt-1">
+            <input type="text" inputMode="decimal" enterKeyHint="done" className="inp text-lg sm:text-sm font-semibold" value={qty} onChange={e => setQty(e.target.value)} placeholder="0" autoFocus />
+            {remaining > 0 && (
+              <button type="button" onClick={() => setQty(String(remaining))} className="btn shrink-0 whitespace-nowrap">весь остаток {fmtNum(remaining)} м</button>
+            )}
+          </div>
+        </label>
+        <label className="block"><span className="text-xs text-slate-500">Дата</span><input type="date" className="inp mt-1" value={date} onChange={e => setDate(e.target.value)} /></label>
+
+        {q > 0 && <div>
           <span className="text-xs text-slate-500">Трасса проложена до конца?</span>
           <div className="flex gap-2 mt-1">
-            <button type="button" onClick={() => setCompleted(true)} className={`flex-1 badge py-1.5 ${effectiveCompleted ? 'bg-emerald-100 text-emerald-700 border-emerald-300' : 'border-slate-300 text-slate-500'}`}>✓ Да, до конца</button>
-            <button type="button" onClick={() => setCompleted(false)} className={`flex-1 badge py-1.5 ${!effectiveCompleted ? 'bg-amber-100 text-amber-700 border-amber-300' : 'border-slate-300 text-slate-500'}`}>⏸ Нет, остановились</button>
+            <button type="button" onClick={() => setCompleted(true)} className={`flex-1 chip justify-center min-h-11 sm:min-h-8 ${effectiveCompleted ? 'bg-emerald-100 text-emerald-700 border-emerald-300' : 'border-slate-300 text-slate-500'}`}>✓ Да, до конца</button>
+            <button type="button" onClick={() => setCompleted(false)} className={`flex-1 chip justify-center min-h-11 sm:min-h-8 ${!effectiveCompleted ? 'bg-amber-100 text-amber-700 border-amber-300' : 'border-slate-300 text-slate-500'}`}>⏸ Нет, остановились</button>
           </div>
-        </div>
+        </div>}
 
-        {!effectiveCompleted && (
+        {q > 0 && !effectiveCompleted && (
           <div>
             <span className="text-xs text-slate-500">Причина</span>
-            <div className="grid gap-1 mt-1">
+            <div className="grid gap-1.5 mt-1">
               {STOP_REASONS.map(r => (
-                <label key={r} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border cursor-pointer ${reason === r ? 'border-amber-400 bg-amber-50 dark:bg-amber-950/30' : 'border-slate-200 dark:border-slate-700'}`}>
-                  <input type="radio" name="reason" checked={reason === r} onChange={() => setReason(r)} /> {r}
+                <label key={r} className={`flex items-center gap-2 px-3 min-h-11 sm:min-h-0 sm:py-1.5 rounded-lg border cursor-pointer ${reason === r ? 'border-amber-400 bg-amber-50 dark:bg-amber-950/30' : 'border-slate-200 dark:border-slate-700'}`}>
+                  <input type="radio" name="reason" className="w-4 h-4" checked={reason === r} onChange={() => setReason(r)} /> {r}
                 </label>
               ))}
             </div>
@@ -305,10 +387,8 @@ function AddCableModal({ cable, onClose, onSaved }: { cable: Cable; onClose: () 
         )}
 
         <label className="block"><span className="text-xs text-slate-500">Комментарий</span><input className="inp mt-1" value={note} onChange={e => setNote(e.target.value)} placeholder={effectiveCompleted ? 'необязательно' : 'например: что именно мешает'} /></label>
-        {err && <div className="text-xs text-rose-600">{err}</div>}
-        <button disabled={saving} onClick={save} className="btn-primary w-full">{saving ? 'Сохраняю…' : 'Сохранить'}</button>
       </div>
-    </ModalShell>
+    </Sheet>
   );
 }
 
@@ -326,7 +406,7 @@ function EditCableModal({ cable, onClose, onSaved }: { cable: Cable; onClose: ()
   async function save() {
     setSaving(true);
     await supabase.from('cables').update({
-      brand, wires, length: parseFloat(length) || 0, start_point: start, end_point: end, method, diam,
+      brand, wires, length: parseNum(length), start_point: start, end_point: end, method, diam,
     }).eq('id', cable.id);
     setSaving(false);
     onSaved();
@@ -334,19 +414,19 @@ function EditCableModal({ cable, onClose, onSaved }: { cable: Cable; onClose: ()
   }
 
   return (
-    <ModalShell title={`Изменить данные — ${cable.tag}`} onClose={onClose}>
+    <Sheet title={`Изменить данные — ${cable.tag}`} onClose={onClose}
+      footer={<button disabled={saving} onClick={save} className="btn-primary w-full text-base sm:text-sm">{saving ? 'Сохраняю…' : 'Сохранить'}</button>}>
       <div className="space-y-3 text-sm">
         <label className="block"><span className="text-xs text-slate-500">Марка</span><input className="inp mt-1" value={brand} onChange={e => setBrand(e.target.value)} /></label>
         <label className="block"><span className="text-xs text-slate-500">Сечение</span><input className="inp mt-1" value={wires} onChange={e => setWires(e.target.value)} /></label>
-        <label className="block"><span className="text-xs text-slate-500">Длина по проекту, м</span><input type="number" className="inp mt-1" value={length} onChange={e => setLength(e.target.value)} /></label>
+        <label className="block"><span className="text-xs text-slate-500">Длина по проекту, м</span><input type="text" inputMode="decimal" className="inp mt-1" value={length} onChange={e => setLength(e.target.value)} /></label>
         <label className="block"><span className="text-xs text-slate-500">Откуда</span><input className="inp mt-1" value={start} onChange={e => setStart(e.target.value)} /></label>
         <label className="block"><span className="text-xs text-slate-500">Куда</span><input className="inp mt-1" value={end} onChange={e => setEnd(e.target.value)} /></label>
         <label className="block"><span className="text-xs text-slate-500">Способ прокладки</span><input className="inp mt-1" value={method} onChange={e => setMethod(e.target.value)} /></label>
         <label className="block"><span className="text-xs text-slate-500">Труба</span><input className="inp mt-1" value={diam} onChange={e => setDiam(e.target.value)} /></label>
         <div className="text-[11px] text-slate-400 bg-slate-50 dark:bg-slate-800 rounded-lg px-3 py-2">Правки видят все — используются вместо исходных проектных данных.</div>
-        <button disabled={saving} onClick={save} className="btn-primary w-full">{saving ? 'Сохраняю…' : 'Сохранить'}</button>
       </div>
-    </ModalShell>
+    </Sheet>
   );
 }
 
@@ -367,7 +447,7 @@ function HistoryModal({ cableId, title, onClose }: { cableId: number; title: str
   }, [cableId]);
 
   return (
-    <ModalShell title={`История — ${title}`} onClose={onClose}>
+    <Sheet title={`История — ${title}`} onClose={onClose}>
       {loading ? <div className="text-slate-400 text-sm text-center py-6">Загрузка…</div> :
         rows.length === 0 ? <div className="text-slate-400 text-sm text-center py-6">Записей ещё нет</div> :
         <div className="space-y-1.5 max-h-[50vh] overflow-auto">
@@ -380,6 +460,6 @@ function HistoryModal({ cableId, title, onClose }: { cableId: number; title: str
           ))}
         </div>
       }
-    </ModalShell>
+    </Sheet>
   );
 }

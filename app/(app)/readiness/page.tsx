@@ -105,16 +105,16 @@ export default function ReadinessPage() {
       </p>
 
       <div className="flex flex-wrap gap-2 mb-3 items-center">
-        <div className="flex rounded-lg border border-slate-300 dark:border-slate-700 overflow-hidden text-sm">
-          <button onClick={() => setKind('cable')} className={`px-3 py-1.5 ${kind === 'cable' ? 'bg-blue-800 text-white' : ''}`}>Кабельные системы</button>
-          <button onClick={() => setKind('equipment')} className={`px-3 py-1.5 ${kind === 'equipment' ? 'bg-blue-800 text-white' : ''}`}>Оборудование</button>
+        <div className="flex basis-full sm:basis-auto rounded-lg border border-slate-300 dark:border-slate-700 overflow-hidden text-sm">
+          <button onClick={() => setKind('cable')} className={`flex-1 px-3 py-1.5 min-h-11 sm:min-h-0 ${kind === 'cable' ? 'bg-blue-800 text-white' : ''}`}>Кабельные системы</button>
+          <button onClick={() => setKind('equipment')} className={`flex-1 px-3 py-1.5 min-h-11 sm:min-h-0 ${kind === 'equipment' ? 'bg-blue-800 text-white' : ''}`}>Оборудование</button>
         </div>
-        <select className="inp w-auto" value={section} onChange={e => setSection(e.target.value)}>
+        <select className="inp w-auto flex-1 sm:flex-none" value={section} onChange={e => setSection(e.target.value)}>
           <option value="all">Все разделы</option>
           {SECTIONS.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
-        <label className="text-xs flex items-center gap-1"><input type="checkbox" checked={onlyBlocked} onChange={e => setOnlyBlocked(e.target.checked)} /> только без допуска</label>
-        <span className="text-xs text-slate-500 ml-auto">С допуском: <b>{readyN}</b> из {totalN}</span>
+        <button type="button" onClick={() => setOnlyBlocked(v => !v)} className={`chip min-h-11 sm:min-h-0 ${onlyBlocked ? 'bg-rose-100 text-rose-700 border-rose-300' : 'border-slate-300 text-slate-600 dark:text-slate-300'}`}>только без допуска</button>
+        <span className="text-xs text-slate-500 w-full sm:w-auto sm:ml-auto">С допуском: <b>{readyN}</b> из {totalN}</span>
       </div>
       {err && <div className="text-xs text-rose-600 mb-2">{err}</div>}
 
@@ -137,15 +137,15 @@ export default function ReadinessPage() {
                   const v = r ? (r as any)[mk.key] : 'Нет';
                   return (
                     <button key={mk.key} title={mk.label} disabled={!canEdit} onClick={() => toggle(f, mk.key)}
-                      className={`badge ${v === 'Да' ? 'bg-emerald-100 text-emerald-700 border-emerald-300' : 'bg-rose-50 text-rose-600 border-rose-200'} ${canEdit ? 'cursor-pointer' : 'cursor-default'}`}>
+                      className={`chip ${v === 'Да' ? 'bg-emerald-100 text-emerald-700 border-emerald-300' : 'bg-rose-50 text-rose-600 border-rose-200'} ${canEdit ? 'cursor-pointer' : 'cursor-default'}`}>
                       {v === 'Да' ? '✓' : '✕'} {mk.short}
                     </button>
                   );
                 })}
                 {canEdit && (
                   <>
-                    <button className="badge border-slate-300 text-slate-500" onClick={() => setAll(f, 'Да')}>всё Да</button>
-                    <button className="badge border-slate-300 text-slate-500" onClick={() => setAll(f, 'Нет')}>сбросить</button>
+                    <button className="chip border-slate-300 text-slate-500" onClick={() => setAll(f, 'Да')}>всё Да</button>
+                    <button className="chip border-slate-300 text-slate-500" onClick={() => setAll(f, 'Нет')}>сбросить</button>
                   </>
                 )}
                 {r?.updated_by && <span className="text-[10px] text-slate-400 self-center ml-1">{fmtDate(r.updated_at?.slice(0, 10))} {names[r.updated_by] || (r.updated_by === me?.id ? me?.full_name : '')}</span>}

@@ -25,24 +25,47 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+/* На телефоне: без подсветки при тапе и без двойного тапа-зума на кнопках */
+html { -webkit-tap-highlight-color: transparent; }
+button, a, select, label { touch-action: manipulation; }
+/* У поиска свой крестик «очистить» — браузерный прячем */
+input[type="search"]::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; }
+
 @layer components {
+  /* Поля: на телефоне шрифт 16px (иначе iPhone увеличивает страницу при фокусе) и высота 44px под палец */
   .inp {
-    @apply w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-slate-900 dark:text-slate-100 outline-none focus:ring-2 focus:ring-blue-500;
+    @apply w-full px-3 py-2 min-h-11 sm:min-h-0 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-base sm:text-sm text-slate-900 dark:text-slate-100 outline-none focus:ring-2 focus:ring-blue-500;
   }
   .btn {
-    @apply px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700;
+    @apply inline-flex items-center justify-center px-3 py-1.5 min-h-11 sm:min-h-0 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 active:bg-slate-100 dark:active:bg-slate-700;
   }
   .btn-primary {
-    @apply px-3 py-1.5 rounded-lg bg-blue-800 hover:bg-blue-900 text-white text-sm font-medium;
+    @apply inline-flex items-center justify-center px-3 py-1.5 min-h-11 sm:min-h-0 rounded-lg bg-blue-800 hover:bg-blue-900 active:bg-blue-950 disabled:opacity-60 text-white text-sm font-medium;
   }
   .badge {
     @apply inline-block text-xs px-2 py-0.5 rounded-full border;
+  }
+  /* Нажимаемый статус: на телефоне крупнее, чтобы попадать пальцем */
+  .chip {
+    @apply inline-flex items-center gap-1 text-xs px-3 py-0 min-h-9 sm:min-h-0 sm:px-2 sm:py-0.5 rounded-full border select-none;
   }
   .card {
     @apply bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-4;
   }
   .icon-btn {
-    @apply cursor-pointer text-sm px-1.5 py-0.5 rounded opacity-70 hover:opacity-100 hover:bg-slate-100 dark:hover:bg-slate-800;
+    @apply inline-flex items-center justify-center cursor-pointer text-sm min-w-10 min-h-10 sm:min-w-0 sm:min-h-0 px-1.5 py-0.5 rounded opacity-70 hover:opacity-100 hover:bg-slate-100 dark:hover:bg-slate-800;
+  }
+  .h-title {
+    @apply text-sm font-semibold text-blue-900 dark:text-blue-300;
   }
 }
+
+/* Отступ снизу под нижнее меню и «чёлку» iPhone */
+.pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+
+@keyframes sheet-up { from { transform: translateY(100%); } to { transform: translateY(0); } }
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+.anim-sheet { animation: sheet-up .22s ease-out; }
+.anim-fade { animation: fade-in .15s ease-out; }
+@media (min-width: 640px) { .anim-sheet { animation: fade-in .15s ease-out; } }
 

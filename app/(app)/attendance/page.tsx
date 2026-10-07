@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { Attendance, Profile } from '@/lib/types';
 import { SECTIONS, ROLE_LABEL } from '@/lib/types';
-import { fmtDate, todayStr, monthRange } from '@/lib/utils';
+import { fmtDate, todayStr, monthRange, parseNum } from '@/lib/utils';
 
 export default function AttendancePage() {
   const supabase = createClient();
@@ -45,7 +45,7 @@ export default function AttendancePage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setSaving(false); return; }
     const { error } = await supabase.from('attendance').upsert({
-      user_id: user.id, date, section, hours: parseFloat(hours) || null, note,
+      user_id: user.id, date, section, hours: parseNum(hours) || null, note,
     }, { onConflict: 'user_id,date,section' });
     setSaving(false);
     if (error) { setMsg('Ошибка: ' + error.message); return; }
@@ -71,16 +71,16 @@ export default function AttendancePage() {
   return (
     <div>
       <h2 className="text-sm font-semibold text-blue-900 dark:text-blue-300 mb-2">Отметиться на объекте</h2>
-      <div className="card mb-6 grid grid-cols-2 sm:grid-cols-5 gap-3 items-end">
+      <div className="card mb-6 grid grid-cols-2 sm:grid-cols-5 gap-3 items-end -mx-1 sm:mx-0">
         <label className="block"><span className="text-xs text-slate-500">Дата</span><input type="date" className="inp mt-1" value={date} onChange={e=>setDate(e.target.value)} /></label>
         <label className="block"><span className="text-xs text-slate-500">Раздел/участок</span>
           <select className="inp mt-1" value={section} onChange={e=>setSection(e.target.value)}>
             {SECTIONS.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
         </label>
-        <label className="block"><span className="text-xs text-slate-500">Часов</span><input type="number" className="inp mt-1" value={hours} onChange={e=>setHours(e.target.value)} /></label>
-        <label className="block sm:col-span-1"><span className="text-xs text-slate-500">Примечание</span><input className="inp mt-1" value={note} onChange={e=>setNote(e.target.value)} placeholder="необязательно" /></label>
-        <button disabled={saving} onClick={markToday} className="btn-primary h-[38px]">{saving ? '…' : 'Отметиться'}</button>
+        <label className="block"><span className="text-xs text-slate-500">Часов</span><input type="text" inputMode="decimal" className="inp mt-1" value={hours} onChange={e=>setHours(e.target.value)} /></label>
+        <label className="block col-span-2 sm:col-span-1"><span className="text-xs text-slate-500">Примечание</span><input className="inp mt-1" value={note} onChange={e=>setNote(e.target.value)} placeholder="необязательно" /></label>
+        <button disabled={saving} onClick={markToday} className="btn-primary col-span-2 sm:col-span-1 text-base sm:text-sm sm:h-[38px]">{saving ? '…' : '✓ Отметиться'}</button>
       </div>
       {msg && <div className="text-xs text-emerald-600 mb-4">{msg}</div>}
 
