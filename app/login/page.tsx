@@ -2,86 +2,113 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { normalizePhone, formatPhone, looksLikeEmail } from '@/lib/phone';
+
+// Понятные сообщения вместо английских ошибок сервера
+function ruError(msg: string): string {
+  const m = msg.toLowerCase();
+  if (m.includes('invalid login credentials')) return 'Неверный телефон (email) или пароль';
+  if (m.includes('already registered') || m.includes('already exists')) return 'Этот номер уже зарегистрирован — войдите с паролем';
+  if (m.includes('phone signups are disabled') || m.includes('unsupported phone provider')) return 'Регистрация по телефону выключена на сервере — сообщите администратору';
+  if (m.includes('password should be at least')) return 'Пароль — минимум 6 символов';
+  if (m.includes('rate limit')) return 'Слишком много попыток, подождите минуту';
+  if (m.includes('failed to fetch') || m.includes('network')) return 'Нет связи с сервером, проверьте интернет';
+  if (!msg.trim() || msg.trim() === '{}') return 'Не удалось войти — попробуйте ещё раз';
+  return msg;
+}
 
 export default function LoginPage() {
   const router = useRouter();
   const supabase = createClient();
   const [mode, setMode] = useState<'login' | 'signup'>('login');
-  const [email, setEmail] = useState('');
+  const [login, setLogin] = useState(''); // телефон или email
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [position, setPosition] = useState('');
-  const [phone, setPhone] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [info, setInfo] = useState('');
+  const [showPass, setShowPass] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
-    setInfo('');
+    const value = login.trim();
+    const isEmail = looksLikeEmail(value);
+    const phone = isEmail ? null : normalizePhone(value);
+    if (!isEmail && !phone) { setError('Введите номер телефона, например 8 916 123-45-67'); return; }
+    if (mode === 'signup' && !fullName.trim()) { setError('Укажите ФИО'); return; }
     setLoading(true);
     try {
       if (mode === 'login') {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        const { error } = isEmail
+          ? await supabase.auth.signInWithPassword({ email: value, password })
+          : await supabase.auth.signInWithPassword({ phone: phone!, password });
         if (error) throw error;
-        router.push('/');
-        router.refresh();
       } else {
-        if (!fullName.trim()) { setError('Укажите ФИО'); setLoading(false); return; }
-        const { data, error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: { data: { full_name: fullName } },
-        });
+        const opts = { data: { full_name: fullName.trim() } };
+        const { data, error } = isEmail
+          ? await supabase.auth.signUp({ email: value, password, options: opts })
+          : await supabase.auth.signUp({ phone: phone!, password, options: opts });
         if (error) throw error;
-        // fill in position/phone once the profile row exists
-        if (data.user) {
-          await supabase.from('profiles').update({ position, phone, full_name: fullName }).eq('id', data.user.id);
+        if (!data.session) {
+          setError('Аккаунт создан, но вход не выполнен: на сервере включено подтверждение. Сообщите администратору.');
+          return;
         }
-        if (data.session) {
-          router.push('/');
-          router.refresh();
-        } else {
-          setInfo('Проверьте почту — нужно подтвердить регистрацию по ссылке в письме, потом войдите.');
-          setMode('login');
+        if (data.user) {
+          await supabase.from('profiles').update({
+            full_name: fullName.trim(), position, ...(phone ? { phone: formatPhone(phone) } : {}),
+          }).eq('id', data.user.id);
         }
       }
-    } catch (err: any) {
-      setError(err?.message || 'Ошибка входа');
+      router.push('/');
+      router.refresh();
+    } catch (err: unknown) {
+      setError(ruError(err instanceof Error ? err.message : String(err)));
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 px-4">
+    <div className="min-h-[100dvh] flex items-center justify-center bg-slate-50 dark:bg-slate-950 px-4 py-6">
       <div className="w-full max-w-sm bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-6">
-        <h1 className="text-lg font-semibold text-blue-900 dark:text-blue-300 mb-1">Контроль монтажа</h1>
-        <p className="text-xs text-slate-500 mb-5">МФК Фрунзенская наб. — {mode === 'login' ? 'вход' : 'регистрация'}</p>
+        <h1 className="text-xl font-semibold text-blue-900 dark:text-blue-300 mb-1">Контроль монтажа</h1>
+        <p className="text-sm text-slate-500 mb-5">МФК Фрунзенская наб. — {mode === 'login' ? 'вход' : 'регистрация'}</p>
 
         <form onSubmit={handleSubmit} className="space-y-3">
           {mode === 'signup' && (
             <>
-              <Field label="ФИО *"><input className="inp" value={fullName} onChange={e=>setFullName(e.target.value)} placeholder="Иванов Иван Иванович" required /></Field>
-              <Field label="Должность"><input className="inp" value={position} onChange={e=>setPosition(e.target.value)} placeholder="Монтажник / Инженер ПНР / Прораб" /></Field>
-              <Field label="Телефон"><input className="inp" value={phone} onChange={e=>setPhone(e.target.value)} placeholder="+7..." /></Field>
+              <Field label="ФИО *"><input className="inp" value={fullName} onChange={e => setFullName(e.target.value)} placeholder="Иванов Иван Иванович" autoComplete="name" required /></Field>
+              <Field label="Должность"><input className="inp" value={position} onChange={e => setPosition(e.target.value)} placeholder="Монтажник / Инженер ПНР / Прораб" /></Field>
             </>
           )}
-          <Field label="Email"><input className="inp" type="email" value={email} onChange={e=>setEmail(e.target.value)} required /></Field>
-          <Field label="Пароль"><input className="inp" type="password" value={password} onChange={e=>setPassword(e.target.value)} required minLength={6} /></Field>
+          <Field label={mode === 'login' ? 'Телефон' : 'Телефон *'}>
+            <input className="inp" type="text" inputMode={looksLikeEmail(login) ? 'email' : 'tel'} autoComplete="username"
+              value={login} onChange={e => setLogin(e.target.value)} placeholder="8 916 123-45-67" required />
+          </Field>
+          <Field label="Пароль">
+            <div className="relative">
+              <input className="inp pr-12" type={showPass ? 'text' : 'password'} autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+                value={password} onChange={e => setPassword(e.target.value)} required minLength={6} placeholder={mode === 'signup' ? 'минимум 6 символов' : ''} />
+              <button type="button" onClick={() => setShowPass(v => !v)} aria-label={showPass ? 'Скрыть пароль' : 'Показать пароль'}
+                className="absolute right-0 top-0 h-full w-12 text-slate-400 text-lg">{showPass ? '🙈' : '👁'}</button>
+            </div>
+          </Field>
 
           {error && <div className="text-sm text-rose-600 bg-rose-50 dark:bg-rose-950 rounded-lg px-3 py-2">{error}</div>}
-          {info && <div className="text-sm text-emerald-700 bg-emerald-50 dark:bg-emerald-950 rounded-lg px-3 py-2">{info}</div>}
 
-          <button disabled={loading} className="w-full bg-blue-800 hover:bg-blue-900 text-white rounded-lg py-2.5 text-sm font-medium disabled:opacity-50">
+          <button disabled={loading} className="btn-primary w-full text-base py-2.5">
             {loading ? 'Подождите…' : mode === 'login' ? 'Войти' : 'Зарегистрироваться'}
           </button>
         </form>
 
+        {mode === 'login' && (
+          <p className="mt-3 text-xs text-slate-400 text-center">Забыли пароль — попросите администратора сбросить его.<br />Можно войти и по email, если регистрировались с ним.</p>
+        )}
+
         <button
-          className="mt-4 text-xs text-blue-700 dark:text-blue-400 hover:underline w-full text-center"
-          onClick={() => { setMode(mode === 'login' ? 'signup' : 'login'); setError(''); setInfo(''); }}
+          className="mt-4 min-h-11 text-sm text-blue-700 dark:text-blue-400 hover:underline w-full text-center"
+          onClick={() => { setMode(mode === 'login' ? 'signup' : 'login'); setError(''); }}
         >
           {mode === 'login' ? 'Впервые здесь? Зарегистрироваться' : 'Уже есть аккаунт? Войти'}
         </button>
